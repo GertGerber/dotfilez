@@ -279,7 +279,6 @@ ensure_gh() {
 }
 
 configure_git_and_gh() {
-  load_env_if_present
   [[ -n "${GIT_NAME:-}"    ]] || die "GIT_NAME is empty."
   [[ -n "${GIT_EMAIL:-}"   ]] || die "GIT_EMAIL is empty."
   [[ -n "${GITHUB_TOKEN:-}"]] || die "GITHUB_TOKEN is empty."
@@ -362,6 +361,13 @@ main_user_mode() {
   ask_or_keep "GIT_EMAIL" "Enter your Git Email"
   ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
+
+  # NEW: reload the saved environment
+  if [[ -r "$ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    info "Reloaded $ENV_FILE into current environment"
+  fi
 
   # GitHub CLI + auth
   ensure_gh

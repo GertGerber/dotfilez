@@ -182,7 +182,7 @@ install_nala_if_missing() {
 pkg_update_upgrade() {
   if $USE_NALA; then
     info "Updating & upgrading via nala..."
-    _sudo nala update -y
+    _sudo nala update
     DEBIAN_FRONTEND=noninteractive _sudo nala upgrade -y
   else
     info "Updating & upgrading via apt..."

@@ -253,7 +253,9 @@ EOF
 ensure_gh() {
   if have_cmd gh; then
     info "GitHub CLI (gh) already present."
-    return
+    return pkg_install gh
+  else 
+    
   fi
 
   info "Installing GitHub CLI (gh)..."

@@ -255,7 +255,7 @@ ensure_gh() {
     info "GitHub CLI (gh) already present."
     return pkg_install gh
   else 
-    
+    pkg_install gh
   fi
 
   info "Installing GitHub CLI (gh)..."

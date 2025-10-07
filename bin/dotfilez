@@ -254,10 +254,10 @@ ensure_gh() {
   if have_cmd gh; then
     info "GitHub CLI (gh) already present."
     return
+  else
+    info "Installing GitHub CLI (gh)..."
+    _sudo pkg_install gh
   fi
-
-  info "Installing GitHub CLI (gh)..."
-  _sudo pkg_install gh -y
 
   have_cmd gh || die "Failed to install GitHub CLI."
 }

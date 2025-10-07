@@ -279,6 +279,7 @@ ensure_gh() {
 }
 
 configure_git_and_gh() {
+  load_env_if_present
   [[ -n "${GIT_NAME:-}"    ]] || die "GIT_NAME is empty."
   [[ -n "${GIT_EMAIL:-}"   ]] || die "GIT_EMAIL is empty."
   [[ -n "${GITHUB_TOKEN:-}"]] || die "GITHUB_TOKEN is empty."

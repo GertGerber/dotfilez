@@ -283,9 +283,9 @@ ensure_gh() {
 }
 
 configure_git_and_gh() {
-  [[ -n "${GIT_NAME:-}"    ]] || die "GIT_NAME is empty."
-  [[ -n "${GIT_EMAIL:-}"   ]] || die "GIT_EMAIL is empty."
-  [[ -n "${GITHUB_TOKEN:-}"]] || die "GITHUB_TOKEN is empty."
+  # [[ -n "${GIT_NAME:-}"    ]] || die "GIT_NAME is empty."
+  # [[ -n "${GIT_EMAIL:-}"   ]] || die "GIT_EMAIL is empty."
+  # [[ -n "${GITHUB_TOKEN:-}"]] || die "GITHUB_TOKEN is empty."
 
   info "Configuring git with name & email..."
   git config --global user.name  "$GIT_NAME"

@@ -254,30 +254,30 @@ ensure_gh() {
   if have_cmd gh; then
     info "GitHub CLI (gh) already present."
     return
-  else
-    info "Installing GitHub CLI (gh)..."
-    _sudo pkg_install gh
   fi
 
-  have_cmd gh || die "Failed to install GitHub CLI."
+  info "Installing GitHub CLI (gh)..."
+  # Call the function directly; it wraps sudo internally.
+  if pkg_install gh; then
+    info "Installed gh via ${PKG_TOOL}."
+  else
+    warn "Native package 'gh' not found; setting up GitHub apt repo..."
+    # Debian/Ubuntu path: add official GitHub CLI repo and install
+    _sudo apt-get update -y
+    _sudo apt-get install -y curl ca-certificates gnupg
+    _sudo mkdir -p -m 755 /etc/apt/keyrings
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | _sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+    _sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages ${VERSION_CODENAME} main" \
+      | _sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+    _sudo apt-get update -y
+    _sudo apt-get install -y gh || die "Failed to install GitHub CLI."
+  fi
 }
 
-configure_git_and_gh() {
-  [[ -n "${GIT_NAME:-}" ]]  || die "GIT_NAME is empty."
-  [[ -n "${GIT_EMAIL:-}" ]] || die "GIT_EMAIL is empty."
-  [[ -n "${GITHUB_TOKEN:-}" ]] || die "GITHUB_TOKEN is empty."
-
-  info "Configuring git with name & email..."
-  git config --global user.name  "$GIT_NAME"
-  git config --global user.email "$GIT_EMAIL"
-
-  info "Logging into GitHub CLI via token..."
-  export GH_TOKEN="$GITHUB_TOKEN"
-  export GITHUB_TOKEN="$GITHUB_TOKEN"
-  printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token
-  gh auth status || die "GitHub auth failed."
-  gh auth setup-git || true
-}
 
 # ===========================
 # Clone Repo

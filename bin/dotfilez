@@ -254,26 +254,10 @@ ensure_gh() {
   if have_cmd gh; then
     info "GitHub CLI (gh) already present."
     return pkg_install gh
-  else 
-    pkg_install gh
   fi
 
-  info "Installing GitHub CLI (gh)..."
-  if apt-cache policy gh 2>/dev/null | grep -q Candidate; then
-    pkg_install gh
-  else
-    warn "Package 'gh' not found in current repos; installing via official repo."
-    pkg_install curl ca-certificates gnupg
-    _sudo mkdir -p -m 0755 /etc/apt/keyrings
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-      | _sudo dd of=/etc/apt/keyrings/githubcli-archive-keyring.gpg
-    _sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-    . /etc/os-release
-    echo "deb [arch=$(_sudo dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages ${VERSION_CODENAME} main" \
-      | _sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-    _sudo apt-get update -y
-    pkg_install gh
-  fi
+  pkg_install gh
+
 
   have_cmd gh || die "Failed to install GitHub CLI."
 }

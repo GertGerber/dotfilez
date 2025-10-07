@@ -206,7 +206,8 @@ pkg_install() {
 # ===========================
 # Env & Inputs
 # ===========================
-ENV_FILE="/etc/dotfilez.env"
+# ENV_FILE="/etc/dotfilez.env"
+ENV_FILE="$HOME/.cache/etc/dotfilez.env"
 
 load_env_if_present() {
   if [[ -f "$ENV_FILE" ]]; then
@@ -245,6 +246,9 @@ EOF
   _sudo mv "$tmp_file" "$ENV_FILE"
   _sudo chmod 600 "$ENV_FILE"
   info "Saved machine variables to $ENV_FILE"
+
+# Ensure exported
+  export GIT_NAME GIT_EMAIL GITHUB_TOKEN
 }
 
 # ===========================

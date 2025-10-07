@@ -253,9 +253,32 @@ EOF
 ensure_gh() {
   if have_cmd gh; then
     info "GitHub CLI (gh) already present."
-    return pkg_install gh
+    return
   fi
-  pkg_install gh
+
+  info "Installing GitHub CLI (gh)..."
+  if apt-cache policy gh 2>/dev/null 
+    pkg_install gh
+  fi
+
+  have_cmd gh || die "Failed to install GitHub CLI."
+}
+
+configure_git_and_gh() {
+  [[ -n "${GIT_NAME:-}" ]]  || die "GIT_NAME is empty."
+  [[ -n "${GIT_EMAIL:-}" ]] || die "GIT_EMAIL is empty."
+  [[ -n "${GITHUB_TOKEN:-}" ]] || die "GITHUB_TOKEN is empty."
+
+  info "Configuring git with name & email..."
+  git config --global user.name  "$GIT_NAME"
+  git config --global user.email "$GIT_EMAIL"
+
+  info "Logging into GitHub CLI via token..."
+  export GH_TOKEN="$GITHUB_TOKEN"
+  export GITHUB_TOKEN="$GITHUB_TOKEN"
+  printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token
+  gh auth status || die "GitHub auth failed."
+  gh auth setup-git || true
 }
 
 # ===========================

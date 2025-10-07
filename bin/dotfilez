@@ -283,22 +283,48 @@ ensure_gh() {
 }
 
 configure_git_and_gh() {
-  # [[ -n "${GIT_NAME:-}"    ]] || die "GIT_NAME is empty."
-  # [[ -n "${GIT_EMAIL:-}"   ]] || die "GIT_EMAIL is empty."
-  # [[ -n "${GITHUB_TOKEN:-}"]] || die "GITHUB_TOKEN is empty."
+  # fail fast on missing deps
+  command -v git >/dev/null 2>&1 || die "git is not installed."
+  command -v gh  >/dev/null 2>&1 || die "GitHub CLI (gh) is not installed."
 
-  info "Configuring git with name & email..."
+  # inputs
+  : "${GIT_NAME:?GIT_NAME is empty.}"
+  : "${GIT_EMAIL:?GIT_EMAIL is empty.}"
+  : "${GITHUB_TOKEN:?GITHUB_TOKEN is empty.}"
+
+  info "Configuring git user identity (global)..."
   git config --global user.name  "$GIT_NAME"
   git config --global user.email "$GIT_EMAIL"
+  # optional sensible defaults:
+  git config --global init.defaultBranch main >/dev/null 2>&1 || true
+  git config --global pull.rebase false        >/dev/null 2>&1 || true
+
+  # don’t leak secrets if -x is on
+  shopt -qo xtrace && _TRACE_ON=1 || _TRACE_ON=0
+  [ "$_TRACE_ON" -eq 1 ] && set +x
 
   info "Logging into GitHub CLI via token..."
-  # Use both env vars; gh prefers GH_TOKEN but supports GITHUB_TOKEN too
-  export GH_TOKEN="$GITHUB_TOKEN"
-  export GITHUB_TOKEN="$GITHUB_TOKEN"
-  printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token
-  gh auth status || die "GitHub auth failed."
-  gh auth setup-git || true
+  # prefer GH_TOKEN (what gh uses); set it temporarily in env for this pipeline only
+  GH_TOKEN="$GITHUB_TOKEN" printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token --hostname github.com
+
+  # restore tracing
+  [ "$_TRACE_ON" -eq 1 ] && set -x
+
+  # verify auth and set up git credential helper
+  gh auth status --hostname github.com || die "GitHub auth failed."
+  gh auth setup-git >/dev/null 2>&1 || true
+
+  # optional: sanity check scopes (non-fatal)
+  gh api user >/dev/null 2>&1 || warn "Token may lack required scopes."
+
+  # optional: avoid leaving token in env
+  unset GH_TOKEN
+  # keep GITHUB_TOKEN exported only if other tooling needs it; else:
+  # unset GITHUB_TOKEN
+
+  success "Git and GitHub CLI are configured."
 }
+
 
 
 # ===========================

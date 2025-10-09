@@ -473,7 +473,8 @@ clone_via_gh() {
     fi
   fi
 }
-run_as_target "$(declare -f info); $(declare -f clone_via_gh); clone_via_gh '$(REPO_URL)' '${CLONE_DIR)' main"
+run_as_target "$(declare -f info); $(declare -f clone_via_gh); clone_via_gh $(REPO_URL) '${CLONE_DIR)' main"
+# run_as_target "$(declare -f info); $(declare -f clone_via_gh); clone_via_gh GertGerber/infrastructure-platform '${TARGET_HOME}/infrastructure-platform' main
 
 # ===========================
 # Post-Clone Hooks

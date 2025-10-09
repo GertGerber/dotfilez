@@ -241,7 +241,7 @@ save_env() {
   cat >"$tmp_file" <<EOF
 GIT_NAME=${GIT_NAME}
 GIT_EMAIL=${GIT_EMAIL}
-# GITHUB_TOKEN=${GITHUB_TOKEN}
+GITHUB_TOKEN=${GITHUB_TOKEN}
 EOF
   _sudo mv "$tmp_file" "$ENV_FILE"
   _sudo chmod 600 "$ENV_FILE"
@@ -281,56 +281,6 @@ ensure_gh() {
     _sudo apt-get install -y gh || die "Failed to install GitHub CLI."
   fi
 }
-
-gh_login_store_token() {
-  local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
-  if [[ -z "$token" ]]; then
-    echo "[!] No GITHUB_TOKEN/GH_TOKEN present. Skipping gh auth login."
-    return 1
-  fi
-
-  # If already authenticated, keep it quick
-  if gh auth status -h github.com >/dev/null 2>&1; then
-    echo "[+] gh already authenticated to github.com"
-    gh auth setup-git || true
-    return 0
-  fi
-
-  echo "[+] Logging into GitHub CLI and storing credentials…"
-  # Temporarily clear env to force storing creds instead of ephemeral env auth
-  local saved_token="$token"
-  unset GITHUB_TOKEN GH_TOKEN
-
-  # Clean any stale sessions quietly
-  gh auth logout -h github.com -y >/dev/null 2>&1 || true
-
-  if ! printf '%s' "$saved_token" | gh auth login --hostname github.com --with-token; then
-    echo "[✗] gh auth login failed."
-    # Restore env on failure
-    export GITHUB_TOKEN="$saved_token"
-    return 1
-  fi
-
-  # Make git use gh’s credential helper for https remotes
-  gh auth setup-git || true
-
-  # Restore env for other tools (optional)
-  export GITHUB_TOKEN="$saved_token"
-
-  # Final sanity check
-  if ! gh auth status -h github.com >/dev/null 2>&1; then
-    echo "[✗] gh auth status check failed after login."
-    return 1
-  fi
-  echo "[+] gh authentication configured."
-}
-
-# …later in your script:
-gh_login_store_token || {
-  echo "[✗] Aborting: GitHub authentication not configured."
-  exit 1
-}
-
 
 configure_git_and_gh() {
   # fail fast on missing deps
@@ -439,10 +389,8 @@ main_user_mode() {
   load_env_if_present
   ask_or_keep "GIT_NAME" "Enter your Git Name"
   ask_or_keep "GIT_EMAIL" "Enter your Git Email"
-  # ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
+  ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
-
-  gh_login_store_token
 
   # NEW: reload the saved environment
   if [[ -r "$ENV_FILE" ]]; then

@@ -299,7 +299,6 @@ configure_git_and_gh() {
   # inputs
   : "${GIT_NAME:?GIT_NAME is empty.}"
   : "${GIT_EMAIL:?GIT_EMAIL is empty.}"
-  : "${GITHUB_TOKEN:?GITHUB_TOKEN is empty.}"
 
   info "Configuring git user identity (global)..."
   git config --global user.name  "$GIT_NAME"
@@ -312,11 +311,7 @@ configure_git_and_gh() {
   shopt -qo xtrace && _TRACE_ON=1 || _TRACE_ON=0
   [ "$_TRACE_ON" -eq 1 ] && set +x
 
-  info "Logging into GitHub CLI via token..."
-  # prefer GH_TOKEN (what gh uses); set it temporarily in env for this pipeline only
-  GH_TOKEN="$GITHUB_TOKEN" printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token --hostname github.com
-
-  # restore tracing
+    # restore tracing
   [ "$_TRACE_ON" -eq 1 ] && set -x
 
   # verify auth and set up git credential helper

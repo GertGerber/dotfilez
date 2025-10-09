@@ -75,6 +75,7 @@ create_admin_user_if_root() {
   if [[ $EUID -ne 0 ]]; then
     return 0
   fi
+  # If we explicitly came back as user, skip creation
   if [[ "$as_user_flag" == "--as-user" ]]; then
     return 0
   fi
@@ -104,6 +105,7 @@ create_admin_user_if_root() {
     break
   done
 
+  # Create if missing
   if ! id "$USERNAME" &>/dev/null; then
     if have_cmd adduser; then
       info "Creating user '$USERNAME' (Debian/Ubuntu path)..."
@@ -131,10 +133,12 @@ create_admin_user_if_root() {
     usermod -aG "$ADMIN_GROUP" "$USERNAME"
   fi
 
+  # Ensure the user can sudo without PATH issues
   echo "$USERNAME ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/apt, /usr/bin/nala, /usr/bin/gh, /usr/bin/git" >/etc/sudoers.d/90-${USERNAME}-bootstrap
   chmod 440 /etc/sudoers.d/90-${USERNAME}-bootstrap
   info "Granted limited passwordless sudo for bootstrap commands."
 
+  # Re-exec this script as the new user
   local SELF
   SELF="$(script_abs)"
   info "Re-running the installer as '$USERNAME'..."
@@ -200,13 +204,16 @@ pkg_install() {
 }
 
 # ===========================
-# Env & Inputs (NO GitHub token saved)
+# Env & Inputs
 # ===========================
-ENV_FILE="/etc/dotfilez.env"
+# ENV_FILE="/etc/dotfilez.env"
+ENV_FILE="$HOME/.cache/etc/dotfilez.env"
 
 load_env_if_present() {
   if [[ -f "$ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
     _sudo bash -lc "source \"$ENV_FILE\"" || true
+    # Also source in current shell if readable
     if [[ -r "$ENV_FILE" ]]; then
       # shellcheck disable=SC1090
       source "$ENV_FILE"
@@ -234,59 +241,97 @@ save_env() {
   cat >"$tmp_file" <<EOF
 GIT_NAME=${GIT_NAME}
 GIT_EMAIL=${GIT_EMAIL}
+# GITHUB_TOKEN=${GITHUB_TOKEN}
 EOF
   _sudo mv "$tmp_file" "$ENV_FILE"
   _sudo chmod 600 "$ENV_FILE"
   info "Saved machine variables to $ENV_FILE"
-  export GIT_NAME GIT_EMAIL
+
+# Ensure exported
+  export GIT_NAME GIT_EMAIL # GITHUB_TOKEN
 }
 
 # ===========================
-# Git & GitHub (no login)
+# Git & GitHub Setup
 # ===========================
 ensure_gh() {
   if have_cmd gh; then
     info "GitHub CLI (gh) already present."
     return
   fi
+
   info "Installing GitHub CLI (gh)..."
+  # Call the function directly; it wraps sudo internally.
   if pkg_install gh; then
     info "Installed gh via ${PKG_TOOL}."
   else
     warn "Native package 'gh' not found; setting up GitHub apt repo..."
+    # Debian/Ubuntu path: add official GitHub CLI repo and install
     _sudo apt-get update -y
     _sudo apt-get install -y curl ca-certificates gnupg
     _sudo mkdir -p -m 755 /etc/apt/keyrings
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       | _sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
     _sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    # shellcheck disable=SC1091
     . /etc/os-release
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages ${VERSION_CODENAME} main" \
       | _sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
     _sudo apt-get update -y
-    _sudo apt-get install -y gh || warn "Failed to install GitHub CLI. You can continue without it."
+    _sudo apt-get install -y gh || die "Failed to install GitHub CLI."
   fi
 }
 
-configure_git_only() {
+configure_git_and_gh() {
+  # fail fast on missing deps
   command -v git >/dev/null 2>&1 || die "git is not installed."
+  command -v gh  >/dev/null 2>&1 || die "GitHub CLI (gh) is not installed."
+
+  # inputs
   : "${GIT_NAME:?GIT_NAME is empty.}"
   : "${GIT_EMAIL:?GIT_EMAIL is empty.}"
+  : "${GITHUB_TOKEN:?GITHUB_TOKEN is empty.}"
 
   info "Configuring git user identity (global)..."
   git config --global user.name  "$GIT_NAME"
   git config --global user.email "$GIT_EMAIL"
+  # optional sensible defaults:
   git config --global init.defaultBranch main >/dev/null 2>&1 || true
   git config --global pull.rebase false        >/dev/null 2>&1 || true
 
-  # NOTE: No GitHub token usage; no gh auth login performed here.
+  # don’t leak secrets if -x is on
+  shopt -qo xtrace && _TRACE_ON=1 || _TRACE_ON=0
+  [ "$_TRACE_ON" -eq 1 ] && set +x
+
+  info "Logging into GitHub CLI via token..."
+  # prefer GH_TOKEN (what gh uses); set it temporarily in env for this pipeline only
+  GH_TOKEN="$GITHUB_TOKEN" printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token --hostname github.com
+
+  # restore tracing
+  [ "$_TRACE_ON" -eq 1 ] && set -x
+
+  # verify auth and set up git credential helper
+  gh auth status --hostname github.com || die "GitHub auth failed."
+  gh auth setup-git >/dev/null 2>&1 || true
+
+  # optional: sanity check scopes (non-fatal)
+  gh api user >/dev/null 2>&1 || warn "Token may lack required scopes."
+
+  # optional: avoid leaving token in env
+  unset GH_TOKEN
+  # keep GITHUB_TOKEN exported only if other tooling needs it; else:
+  # unset GITHUB_TOKEN
+
+  success "Git and GitHub CLI are configured."
 }
+
+
 
 # ===========================
 # Clone Repo
 # ===========================
 REPO_URL="https://github.com/GertGerber/dotfilez"
-CLONE_DIR="/opt/dotfilez"
+CLONE_DIR="$HOME/dotfilez"
 
 clone_or_update_repo() {
   if [[ -d "$CLONE_DIR/.git" ]]; then
@@ -294,6 +339,7 @@ clone_or_update_repo() {
     _sudo git -C "$CLONE_DIR" remote set-url origin "$REPO_URL" || true
     _sudo git -C "$CLONE_DIR" fetch --all --prune
     _sudo git -C "$CLONE_DIR" pull --ff-only
+    # ensure current user owns workspace
     _sudo chown -R "$(id -u)":"$(id -g)" "$CLONE_DIR"
   else
     info "Cloning repository into $CLONE_DIR ..."
@@ -308,6 +354,7 @@ clone_or_update_repo() {
 # ===========================
 post_clone_actions() {
   info "Post-clone actions section (customize as needed)."
+  # Example hook: run create_user.sh if it exists and is executable
   if [[ -x "$CLONE_DIR/create_user.sh" ]]; then
     warn "About to run: $CLONE_DIR/create_user.sh (press Enter to continue or Ctrl+C to skip)"
     read -r _
@@ -321,10 +368,12 @@ post_clone_actions() {
 # Main (user-mode)
 # ===========================
 PKG_WANTS=(git ca-certificates)
+ENV_FILE="/etc/dotfilez.env"
 
 main_user_mode() {
   print_banner
 
+  # Make sure sudo is usable (will prompt once if NOPASSWD not set)
   if [[ $EUID -ne 0 ]]; then
     if ! have_cmd sudo; then
       die "sudo not available; please run as root first so I can install it."
@@ -336,20 +385,28 @@ main_user_mode() {
   pkg_update_upgrade
   pkg_install "${PKG_WANTS[@]}"
 
+  # Gather env (persisted)
   load_env_if_present
   ask_or_keep "GIT_NAME" "Enter your Git Name"
   ask_or_keep "GIT_EMAIL" "Enter your Git Email"
+  # ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
 
+  # NEW: reload the saved environment
   if [[ -r "$ENV_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$ENV_FILE"
     info "Reloaded $ENV_FILE into current environment"
   fi
 
-  ensure_gh         # install only; does NOT log in
-  configure_git_only
+  # GitHub CLI + auth
+  ensure_gh
+  configure_git_and_gh
+
+  # Clone repo
   clone_or_update_repo
+
+  # Post-clone section
   post_clone_actions
 
   info "All done. This LXC is now primed as your homelab deployment server. 🚀"

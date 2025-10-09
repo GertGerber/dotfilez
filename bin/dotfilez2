@@ -241,7 +241,6 @@ save_env() {
   cat >"$tmp_file" <<EOF
 GIT_NAME=${GIT_NAME}
 GIT_EMAIL=${GIT_EMAIL}
-# GITHUB_TOKEN=${GITHUB_TOKEN}
 EOF
   _sudo mv "$tmp_file" "$ENV_FILE"
   _sudo chmod 600 "$ENV_FILE"

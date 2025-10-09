@@ -475,7 +475,6 @@ clone_or_update_repo() {
   git clone "$REPO_URL" "$CLONE_DIR"
 }
 
-
 # ===========================
 # Post-Clone Hooks
 # ===========================

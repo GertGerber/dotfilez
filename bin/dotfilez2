@@ -391,6 +391,7 @@ main_user_mode() {
   ask_or_keep "GIT_EMAIL" "Enter your Git Email"
   ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
+  unset GITHUB_TOKEN GH_TOKEN
 
   # NEW: reload the saved environment
   if [[ -r "$ENV_FILE" ]]; then

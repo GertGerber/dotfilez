@@ -392,8 +392,6 @@ main_user_mode() {
   ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
 
-  gh_login_store_token
-
   # NEW: reload the saved environment
   if [[ -r "$ENV_FILE" ]]; then
     # shellcheck disable=SC1090

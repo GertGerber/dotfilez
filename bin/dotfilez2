@@ -261,7 +261,7 @@ EOF
 }
 
 # ===========================
-# Git & GitHub Setup
+# Git Setup
 # ===========================
 ensure_gh() {
   if have_cmd gh; then
@@ -318,6 +318,57 @@ configure_git() {
   success "Git is configured."
 }
 
+# ===========================
+# GitHub Setup
+# ===========================
+gh_login_store_token() {
+  local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+  if [[ -z "$token" ]]; then
+    echo "[!] No GITHUB_TOKEN/GH_TOKEN present. Skipping gh auth login."
+    return 1
+  fi
+
+  # If already authenticated, keep it quick
+  if gh auth status -h github.com >/dev/null 2>&1; then
+    echo "[+] gh already authenticated to github.com"
+    gh auth setup-git || true
+    return 0
+  fi
+
+  echo "[+] Logging into GitHub CLI and storing credentials…"
+  # Temporarily clear env to force storing creds instead of ephemeral env auth
+  local saved_token="$token"
+  unset GITHUB_TOKEN GH_TOKEN
+
+  # Clean any stale sessions quietly
+  gh auth logout -h github.com -y >/dev/null 2>&1 || true
+
+  if ! printf '%s' "$saved_token" | gh auth login --hostname github.com --with-token; then
+    echo "[✗] gh auth login failed."
+    # Restore env on failure
+    export GITHUB_TOKEN="$saved_token"
+    return 1
+  fi
+
+  # Make git use gh’s credential helper for https remotes
+  gh auth setup-git || true
+
+  # Restore env for other tools (optional)
+  export GITHUB_TOKEN="$saved_token"
+
+  # Final sanity check
+  if ! gh auth status -h github.com >/dev/null 2>&1; then
+    echo "[✗] gh auth status check failed after login."
+    return 1
+  fi
+  echo "[+] gh authentication configured."
+}
+
+# …later in your script:
+gh_login_store_token || {
+  echo "[✗] Aborting: GitHub authentication not configured."
+  exit 1
+}
 
 
 # ===========================

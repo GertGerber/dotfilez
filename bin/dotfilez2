@@ -241,7 +241,7 @@ save_env() {
   cat >"$tmp_file" <<EOF
 GIT_NAME=${GIT_NAME}
 GIT_EMAIL=${GIT_EMAIL}
-GITHUB_TOKEN=${GITHUB_TOKEN}
+# GITHUB_TOKEN=${GITHUB_TOKEN}
 EOF
   _sudo mv "$tmp_file" "$ENV_FILE"
   _sudo chmod 600 "$ENV_FILE"
@@ -389,7 +389,7 @@ main_user_mode() {
   load_env_if_present
   ask_or_keep "GIT_NAME" "Enter your Git Name"
   ask_or_keep "GIT_EMAIL" "Enter your Git Email"
-  ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
+  # ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
 
   # NEW: reload the saved environment

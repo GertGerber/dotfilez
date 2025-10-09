@@ -321,19 +321,88 @@ configure_git() {
 # ===========================
 # GitHub Setup
 # ===========================
-configure_github_auth() {
-  if gh auth status >/dev/null 2>&1; then
-    info "GitHub CLI already authenticated."
-    return
+# Prompt for a token (hidden input). Returns via stdout.
+_prompt_github_token() {
+  # If not a TTY, bail with a clear message so CI can inject env var.
+  if [[ ! -t 0 ]]; then
+    echo "[!] No interactive TTY available. Set GITHUB_TOKEN (or GH_TOKEN) in the environment." >&2
+    return 1
   fi
 
-  info "Authenticating GitHub CLI (gh)..."
-  if gh auth login ; then
-    info "GitHub CLI authenticated successfully."
-  else
-    warn "GitHub CLI authentication failed or was cancelled."
+  local token
+  echo -n "[?] Enter your GitHub Personal Access Token (input hidden): " >&2
+  # -r: raw, -s: silent, -p is not portable across shells; we echo prompt separately.
+  read -rs token
+  echo >&2   # newline after hidden input
+  if [[ -z "$token" ]]; then
+    echo "[!] Empty token entered." >&2
+    return 1
   fi
+  printf '%s' "$token"
 }
+
+gh_login_store_token() {
+  # Prefer env tokens; otherwise, ask the user.
+  local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+  if [[ -z "$token" ]]; then
+    token="$(_prompt_github_token)" || {
+      echo "[✗] No token provided; cannot continue GitHub auth."
+      return 1
+    }
+  fi
+
+  # If already authenticated, keep it quick and idempotent.
+  if gh auth status -h github.com >/dev/null 2>&1; then
+    echo "[+] gh already authenticated to github.com"
+    gh auth setup-git || true
+    return 0
+  fi
+
+  echo "[+] Logging into GitHub CLI and storing credentials…"
+
+  # Keep a copy, then unset env so gh STORES credentials instead of using env.
+  local saved_token="$token"
+  unset GITHUB_TOKEN GH_TOKEN
+
+  # Clean any stale sessions quietly.
+  gh auth logout -h github.com -y >/dev/null 2>&1 || true
+
+  # Feed token via stdin so it never lands in process args or history.
+  if ! printf '%s' "$saved_token" | gh auth login --hostname github.com --with-token; then
+    echo "[✗] gh auth login failed."
+    # Restore env on failure for other tools that might still rely on it.
+    export GITHUB_TOKEN="$saved_token"
+    return 1
+  fi
+
+  # Configure Git to use gh’s credential helper.
+  gh auth setup-git || true
+
+  # Optional: restore env for other tooling in this session.
+  export GITHUB_TOKEN="$saved_token"
+
+  # Sanity check by hitting the API (confirms token works and scopes allow /user).
+  if ! gh api -H "Accept: application/vnd.github+json" /user >/dev/null 2>&1; then
+    echo "[✗] Auth appears incomplete; unable to call GitHub API as the authenticated user."
+    return 1
+  fi
+
+  # Final status check.
+  if ! gh auth status -h github.com >/dev/null 2>&1; then
+    echo "[✗] gh auth status check failed after login."
+    return 1
+  fi
+
+  echo "[+] gh authentication configured."
+  return 0
+}
+
+# …later in your script:
+gh_login_store_token || {
+  echo "[✗] Aborting: GitHub authentication not configured."
+  exit 1
+}
+
 
 
 # ===========================

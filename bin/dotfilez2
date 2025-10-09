@@ -291,7 +291,7 @@ ensure_gh() {
   fi
 }
 
-configure_git_and_gh() {
+configure_git() {
   # fail fast on missing deps
   command -v git >/dev/null 2>&1 || die "git is not installed."
   command -v gh  >/dev/null 2>&1 || die "GitHub CLI (gh) is not installed."
@@ -314,19 +314,8 @@ configure_git_and_gh() {
     # restore tracing
   [ "$_TRACE_ON" -eq 1 ] && set -x
 
-  # verify auth and set up git credential helper
-  gh auth status --hostname github.com || die "GitHub auth failed."
-  gh auth setup-git >/dev/null 2>&1 || true
-
-  # optional: sanity check scopes (non-fatal)
-  gh api user >/dev/null 2>&1 || warn "Token may lack required scopes."
-
-  # optional: avoid leaving token in env
-  unset GH_TOKEN
-  # keep GITHUB_TOKEN exported only if other tooling needs it; else:
-  # unset GITHUB_TOKEN
-
-  success "Git and GitHub CLI are configured."
+  
+  success "Git is configured."
 }
 
 
@@ -405,7 +394,7 @@ main_user_mode() {
 
   # GitHub CLI + auth
   ensure_gh
-  configure_git_and_gh
+  configure_git
 
   # Clone repo
   clone_or_update_repo

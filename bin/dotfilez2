@@ -44,6 +44,23 @@ print_banner() {
   printf '\n'
 }
 
+# ==========================
+# Detect OS
+# ==========================
+detect_os() {
+  if [[ -r /etc/os-release ]]; then
+    . /etc/os-release
+    case "$ID" in
+      debian|ubuntu|linuxmint) echo debian ;;
+      rhel|centos|rocky|almalinux|fedora) echo rhel ;;
+      *) echo debian ;;  # default support
+    esac
+  else
+    echo debian
+  fi
+}
+PKG_FAMILY="$(detect_os)"
+
 # ===========================
 # Root -> Create admin user -> Re-exec
 # ===========================
@@ -102,7 +119,8 @@ create_admin_user_if_root() {
         *) continue ;;
       esac
     fi
-    break
+    # break
+    su "$USERNAME"
   done
 
   # Create if missing
@@ -207,7 +225,7 @@ pkg_install() {
 # Env & Inputs
 # ===========================
 # ENV_FILE="/etc/dotfilez.env"
-ENV_FILE="$HOME/.cache/etc/dotfilez.env"
+ENV_FILE="${ENV_FILE:-$HOME/.config/dotfilez/env}"
 
 create_env_file_if_missing() {
   if [[ ! -f "$ENV_FILE" ]]; then
@@ -219,17 +237,12 @@ fi
 }
 
 load_env_if_present() {
-  if [[ -f "$ENV_FILE" ]]; then
-    # shellcheck disable=SC1090
-    _sudo bash -lc "source \"$ENV_FILE\"" || true
-    # Also source in current shell if readable
-    if [[ -r "$ENV_FILE" ]]; then
-      # shellcheck disable=SC1090
-      source "$ENV_FILE"
-      info "Loaded existing env from $ENV_FILE"
-    fi
-  fi
+  [[ -f "$ENV_FILE" ]] || return 0
+  # shellcheck disable=SC1090
+  source "$ENV_FILE" || true
+  info "Loaded existing env from $ENV_FILE"
 }
+
 
 ask_or_keep() {
   local var_name="$1" prompt="$2"
@@ -252,12 +265,10 @@ save_env() {
 GIT_NAME=${GIT_NAME}
 GIT_EMAIL=${GIT_EMAIL}
 EOF
-  _sudo mv "$tmp_file" "$ENV_FILE"
-  _sudo chmod 600 "$ENV_FILE"
+  mv "$tmp_file" "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
   info "Saved machine variables to $ENV_FILE"
-
-# Ensure exported
-  export GIT_NAME GIT_EMAIL # GITHUB_TOKEN
+  export GIT_NAME GIT_EMAIL
 }
 
 # ===========================
@@ -315,14 +326,14 @@ configure_git() {
   [ "$_TRACE_ON" -eq 1 ] && set -x
 
   
-  success "Git is configured."
+  info  "Git is configured."
 }
 
 # ===========================
 # GitHub Setup
 # ===========================
 # Prompt for a token (hidden input). Returns via stdout.
-_prompt_github_token() {
+prompt_github_token() {
   # If not a TTY, bail with a clear message so CI can inject env var.
   if [[ ! -t 0 ]]; then
     echo "[!] No interactive TTY available. Set GITHUB_TOKEN (or GH_TOKEN) in the environment." >&2
@@ -470,6 +481,9 @@ main_user_mode() {
   # ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
 
+  # Prompt for GitHub token (not saved to disk)
+  GITHUB_TOKEN="$(prompt_github_token)" || die "GitHub token is required
+
   # NEW: reload the saved environment
   if [[ -r "$ENV_FILE" ]]; then
     # shellcheck disable=SC1090
@@ -480,6 +494,13 @@ main_user_mode() {
   # GitHub CLI + auth
   ensure_gh
   configure_git
+
+  # GitHub CLI + auth (optional in non-TTY)
+  if [[ -t 0 ]]; then
+    gh_login_store_token || warn "GitHub auth not completed; continuing without authenticated gh."
+  else
+    warn "No TTY; skipping gh login prompt. Set GITHUB_TOKEN in environment for non-interactive runs."
+  fi
 
   # Clone repo
   clone_or_update_repo

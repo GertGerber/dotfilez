@@ -428,52 +428,52 @@ gh_login_store_token() {
 # ===========================
 # Clone Repo
 # ===========================
-REPO_URL="https://github.com/GertGerber/dotfilez"
+# REPO_URL="https://github.com/GertGerber/dotfilez"
+REPO_URL="GertGerber/dotfilez"
 CLONE_DIR="$HOME/dotfilez"
 
-clone_or_update_repo() {
-  # If path exists but is not a directory, hard stop
-  if [[ -e "$CLONE_DIR" && ! -d "$CLONE_DIR" ]]; then
-    die "Path $CLONE_DIR exists and is not a directory."
+clone_via_gh() {
+  # Usage: clone_via_gh <owner/repo> <target_dir> [<ref>]
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "gh is not installed" >&2
+    return 1
+  fi
+  if [ -z "$1" ]; then
+    echo "Usage: clone_via_gh <owner/repo> <target_dir> [<ref>]" >&2
+    return 2
   fi
 
-  # If directory exists, ensure we can write to it
-  if [[ -d "$CLONE_DIR" ]]; then
-    if [[ ! -w "$CLONE_DIR" ]]; then
-      info "Fixing ownership on $CLONE_DIR ..."
-      _sudo chown -R "$(id -u)":"$(id -g)" "$CLONE_DIR" || die "Cannot chown $CLONE_DIR"
-    fi
+  local repo="$1" dir="$2" ref="${3:-}"
 
-    if [[ -d "$CLONE_DIR/.git" ]]; then
-      info "Repository already present; pulling latest."
-      git -C "$CLONE_DIR" remote set-url origin "$REPO_URL" || true
-      git -C "$CLONE_DIR" fetch --all --prune
-      git -C "$CLONE_DIR" pull --ff-only
-      return
-    fi
+  # Disable any interactive Git password prompts just in case.
+  export GIT_TERMINAL_PROMPT=0
+  export GIT_ASKPASS=/bin/echo
 
-    # Directory exists but isn't a git repo
-    if [[ -z "$(ls -A "$CLONE_DIR")" ]]; then
-      info "Empty directory at $CLONE_DIR; cloning into it..."
-      git clone "$REPO_URL" "$CLONE_DIR"
+  if [ -n "$dir" ] && [ -d "$dir/.git" ]; then
+    info "Repo already exists at '$dir'; updating…"
+    git -C "$dir" remote set-url origin "https://github.com/${repo}.git" || true
+    if [ -n "$ref" ]; then
+      git -C "$dir" fetch --tags --prune --depth=1 origin "$ref"
+      git -C "$dir" checkout -q FETCH_HEAD
     else
-      warn "Directory $CLONE_DIR exists and is not empty."
-      local ts alt
-      ts="$(date +%Y%m%d-%H%M%S)"
-      alt="${CLONE_DIR}-${ts}"
-      info "Cloning into ${alt} instead..."
-      mkdir -p "$alt"
-      git clone "$REPO_URL" "$alt"
-      CLONE_DIR="$alt"
+      git -C "$dir" fetch --tags --prune --depth=1 origin
+      # Update current branch if it tracks origin
+      git -C "$dir" pull --ff-only --depth=1 || true
     fi
-    return
+  else
+    if [ -n "$dir" ]; then
+      gh repo clone "$repo" "$dir" -- --no-tags --filter=blob:none --depth=1
+    else
+      gh repo clone "$repo" -- --no-tags --filter=blob:none --depth=1
+      dir="$(basename "$repo")"
+    fi
+    if [ -n "$ref" ]; then
+      git -C "$dir" fetch --depth=1 origin "$ref"
+      git -C "$dir" checkout -q FETCH_HEAD
+    fi
   fi
-
-  # Fresh clone
-  info "Cloning repository into $CLONE_DIR ..."
-  mkdir -p "$CLONE_DIR"
-  git clone "$REPO_URL" "$CLONE_DIR"
 }
+run_as_target "$(declare -f info); $(declare -f clone_via_gh); clone_via_gh '$(REPO_URL)' '${CLONE_DIR)' main"
 
 # ===========================
 # Post-Clone Hooks

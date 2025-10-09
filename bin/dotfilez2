@@ -105,7 +105,7 @@ create_admin_user_if_root() {
     break
   done
 
-   Create if missing
+  # Create if missing
   if ! id "$USERNAME" &>/dev/null; then
     if have_cmd adduser; then
       info "Creating user '$USERNAME' (Debian/Ubuntu path)..."
@@ -290,7 +290,7 @@ configure_git_and_gh() {
   # inputs
   : "${GIT_NAME:?GIT_NAME is empty.}"
   : "${GIT_EMAIL:?GIT_EMAIL is empty.}"
-  # : "${GITHUB_TOKEN:?GITHUB_TOKEN is empty.}"
+  : "${GITHUB_TOKEN:?GITHUB_TOKEN is empty.}"
 
   info "Configuring git user identity (global)..."
   git config --global user.name  "$GIT_NAME"
@@ -391,7 +391,6 @@ main_user_mode() {
   ask_or_keep "GIT_EMAIL" "Enter your Git Email"
   ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
-  unset GITHUB_TOKEN GH_TOKEN
 
   # NEW: reload the saved environment
   if [[ -r "$ENV_FILE" ]]; then

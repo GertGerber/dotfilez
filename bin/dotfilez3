@@ -432,19 +432,49 @@ REPO_URL="https://github.com/GertGerber/dotfilez"
 CLONE_DIR="$HOME/dotfilez"
 
 clone_or_update_repo() {
-  if [[ -d "$CLONE_DIR/.git" ]]; then
-    info "Repository already present; pulling latest."
-    _sudo git -C "$CLONE_DIR" remote set-url origin "$REPO_URL" || true
-    _sudo git -C "$CLONE_DIR" fetch --all --prune
-    _sudo git -C "$CLONE_DIR" pull --ff-only
-    # ensure current user owns workspace
-    _sudo chown -R "$(id -u)":"$(id -g)" "$CLONE_DIR"
-  else
-    info "Cloning repository into $CLONE_DIR ..."
-    mkdir -p "$CLONE_DIR"
-    git clone "$REPO_URL" "$CLONE_DIR"
+  # If path exists but is not a directory, hard stop
+  if [[ -e "$CLONE_DIR" && ! -d "$CLONE_DIR" ]]; then
+    die "Path $CLONE_DIR exists and is not a directory."
   fi
+
+  # If directory exists, ensure we can write to it
+  if [[ -d "$CLONE_DIR" ]]; then
+    if [[ ! -w "$CLONE_DIR" ]]; then
+      info "Fixing ownership on $CLONE_DIR ..."
+      _sudo chown -R "$(id -u)":"$(id -g)" "$CLONE_DIR" || die "Cannot chown $CLONE_DIR"
+    fi
+
+    if [[ -d "$CLONE_DIR/.git" ]]; then
+      info "Repository already present; pulling latest."
+      git -C "$CLONE_DIR" remote set-url origin "$REPO_URL" || true
+      git -C "$CLONE_DIR" fetch --all --prune
+      git -C "$CLONE_DIR" pull --ff-only
+      return
+    fi
+
+    # Directory exists but isn't a git repo
+    if [[ -z "$(ls -A "$CLONE_DIR")" ]]; then
+      info "Empty directory at $CLONE_DIR; cloning into it..."
+      git clone "$REPO_URL" "$CLONE_DIR"
+    else
+      warn "Directory $CLONE_DIR exists and is not empty."
+      local ts alt
+      ts="$(date +%Y%m%d-%H%M%S)"
+      alt="${CLONE_DIR}-${ts}"
+      info "Cloning into ${alt} instead..."
+      mkdir -p "$alt"
+      git clone "$REPO_URL" "$alt"
+      CLONE_DIR="$alt"
+    fi
+    return
+  fi
+
+  # Fresh clone
+  info "Cloning repository into $CLONE_DIR ..."
+  mkdir -p "$CLONE_DIR"
+  git clone "$REPO_URL" "$CLONE_DIR"
 }
+
 
 # ===========================
 # Post-Clone Hooks

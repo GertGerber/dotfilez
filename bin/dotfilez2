@@ -105,7 +105,7 @@ create_admin_user_if_root() {
     break
   done
 
-   Create if missing
+  # Create if missing
   if ! id "$USERNAME" &>/dev/null; then
     if have_cmd adduser; then
       info "Creating user '$USERNAME' (Debian/Ubuntu path)..."
@@ -282,14 +282,6 @@ ensure_gh() {
   fi
 }
 
-
-# …later in your script:
-gh_login_store_token || {
-  echo "[✗] Aborting: GitHub authentication not configured."
-  exit 1
-}
-
-
 configure_git_and_gh() {
   # fail fast on missing deps
   command -v git >/dev/null 2>&1 || die "git is not installed."
@@ -399,8 +391,6 @@ main_user_mode() {
   ask_or_keep "GIT_EMAIL" "Enter your Git Email"
   ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
   save_env
-
-  gh_login_store_token
 
   # NEW: reload the saved environment
   if [[ -r "$ENV_FILE" ]]; then

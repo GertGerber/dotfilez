@@ -368,7 +368,7 @@ post_clone_actions() {
 # Main (user-mode)
 # ===========================
 PKG_WANTS=(git ca-certificates)
-ENV_FILE="/etc/dotfilez.env"
+ENV_FILE="$HOME/.cache/etc/dotfilez.env"
 
 main_user_mode() {
   print_banner

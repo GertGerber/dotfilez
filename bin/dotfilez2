@@ -209,6 +209,15 @@ pkg_install() {
 # ENV_FILE="/etc/dotfilez.env"
 ENV_FILE="$HOME/.cache/etc/dotfilez.env"
 
+create_env_file_if_missing() {
+  if [[ ! -f "$ENV_FILE" ]]; then
+  info "Creating $ENV_FILE ..."
+  _sudo mkdir -p "$(dirname "$ENV_FILE")"
+  echo "# dotfilez environment configuration" | _sudo tee "$ENV_FILE" >/dev/null
+  _sudo chmod 600 "$ENV_FILE"
+fi
+}
+
 load_env_if_present() {
   if [[ -f "$ENV_FILE" ]]; then
     # shellcheck disable=SC1090
@@ -235,6 +244,7 @@ ask_or_keep() {
 }
 
 save_env() {
+  create_env_file_if_missing
   umask 0177
   local tmp_file
   tmp_file="$(mktemp)"

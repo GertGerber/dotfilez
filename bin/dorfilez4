@@ -345,6 +345,7 @@ REPO_URL="${REPO_URL:-https://github.com/GertGerber/dotfilez}"
 CLONE_DIR="${CLONE_DIR:-$HOME/dotfilez}"
 
 clone_via_gh() {
+set -x
   # Usage: git_sync_repo <repo-url> <dest-dir> [branch]
   # Example: git_sync_repo https://github.com/user/project.git ~/project main
   local repo_url="${1:?repo url required}"
@@ -391,6 +392,7 @@ clone_via_gh() {
     fi
     echo "Cloned: $repo_url -> $dest_dir"
   fi
+set +x
 }
 
 

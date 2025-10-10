@@ -1,4 +1,22 @@
 #!/usr/bin/env bash
+
+# ---------------- Sudo Start ----------------
+# Resolve repo root (works from any cwd and via symlinks)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR%/*}" && pwd -P)"  # tweak to your layout
+# Or: REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || cd "$SCRIPT_DIR/.." && pwd -P)"
+
+# Opt-in to forbidding raw sudo (comment out where you truly need sudo)
+export FORBID_DIRECT_SUDO=1
+
+# Source helpers
+# If your helpers live at scripts/helpers/privilege.sh from repo root:
+# shellcheck source=scripts/helpers/privilege.sh
+. "$REPO_ROOT/scripts/helpers/privilege.sh"
+
+# Prefix commands with _sudo to auto-elevate if needed.
+# ---------------- Sudo End ------------------
+
 set -Eeuo pipefail
 IFS=$'\n\t'
 
@@ -38,8 +56,8 @@ pick_path() {
   if (( $# > 0 )) && [[ -n "${1:-}" ]]; then
     local p="$1"
     [[ -e "$p" ]] || die "Path not found: $p"
-    command -v realpath >/dev/null 2>&1 \
-      && realpath -m -- "$p" \
+    _sudo command -v realpath >/dev/null 2>&1 \
+      && _sudo realpath -m -- "$p" \
       || printf '%s' "$p"
     return 0
   fi
@@ -99,7 +117,7 @@ make_exec() {
   local target="$1"
   if [[ -d "$target" ]]; then
     info "Directory selected: $target"
-    mapfile -d '' files < <(find "$target"  -L -type f -name '*.sh' -print0)
+    mapfile -d '' files < <(find "$target" -type f -name '*.sh' -print0)
     if (( ${#files[@]} == 0 )); then
       warn "No *.sh files found under: $target"
       return 0
@@ -108,7 +126,7 @@ make_exec() {
     ok "Marked ${#files[@]} shell script(s) executable."
   elif [[ -f "$target" ]]; then
     info "File selected: $target"
-    chmod +x -- "$target"
+    _sudo chmod +x -- "$target"
     [[ "$target" == *.sh ]] || warn "File does not end with .sh; made it executable anyway."
     ok "Marked 1 file executable."
   else

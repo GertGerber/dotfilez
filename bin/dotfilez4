@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+
+# Optional debug tracing: export DEBUG=1 to enable
+[[ "${DEBUG:-0}" == 1 ]] && set -x
 IFS=$'\n\t'
 
 # =====================================================================================

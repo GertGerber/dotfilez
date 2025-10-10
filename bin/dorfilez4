@@ -468,7 +468,7 @@ main_user_mode() {
   configure_git
   gh_login_store_token || warn "GitHub auth not completed; proceeding."
 
-  clone_via_gh "$REPO_URL" "$CLONE_DIR"
+  clone_via_gh "$REPO_URL" "$CLONE_DIR" main
 
   post_clone_actions
 

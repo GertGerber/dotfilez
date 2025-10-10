@@ -408,25 +408,59 @@ post_clone_actions() {
 #       Includes timestamp, user, package manager info, git/gh status, and repo details
 write_summary() {
   local summary_path="${SUMMARY_PATH:-/var/tmp/infra-installer-summary.json}"
-  local gh_status="unauthenticated"; if gh auth status -h github.com >/dev/null 2>&1; then gh_status="authenticated"; fi
+
+  # Determine GitHub auth status
+  local gh_status="unauthenticated"
+  if gh auth status -h github.com >/dev/null 2>&1; then
+    gh_status="authenticated"
+  fi
+
+  # Effective user (fixes nested default expansion)
+  local effective_user="${USER:-${USERNAME:-unknown}}"
+
+  # Prefer values actually set in git config; fall back to env defaults used earlier
+  local git_name git_email
+  git_name="$(git config --global user.name || true)"
+  git_email="$(git config --global user.email || true)"
+  git_name="${git_name:-${GIT_USER_NAME:-}}"
+  git_email="${git_email:-${GIT_USER_EMAIL:-}}"
+
+  # Build JSON payload
   local data
   data=$(cat <<JSON
 {
   "timestamp": "$(date -Is)",
-  "user": "${USER:-$USERNAME:-unknown}",
+  "user": "${effective_user}",
   "username": "${USERNAME:-}",
   "pkg_family": "${PKG_FAMILY}",
   "pkg_tool": "${PKG_TOOL}",
   "use_nala": ${USE_NALA},
-  "git": {"name": "${GIT_NAME:-}", "email": "${GIT_EMAIL:-}"},
-  "gh": {"status": "${gh_status}"},
-  "repo": {"url": "${GITHUB_REPO}", "dir": "${CLONE_DIR}"}
+  "git": { "name": "${git_name}", "email": "${git_email}" },
+  "gh": { "status": "${gh_status}" },
+  "repo": { "url": "${GITHUB_REPO}", "dir": "${CLONE_DIR}" }
 }
 JSON
 )
-  printf '%s' "$data" > "$summary_path"
+
+  # Write to file
+  printf '%s' "$data" > "$summary_path" || { warn "Failed to write summary to $summary_path"; return 1; }
   info "Wrote summary to $summary_path"
+
+  # Also print a pretty summary to the screen
+  echo
+  divider
+  info "Summary:"
+  if have_cmd jq; then
+    printf '%s' "$data" | jq .
+  elif have_cmd python3; then
+    printf '%s' "$data" | python3 -m json.tool
+  else
+    # Fallback: print raw JSON
+    printf '%s\n' "$data"
+  fi
+  divider
 }
+
 
 
 # ── Main (user-mode) ────────────────────────────────────────────────────────────────────

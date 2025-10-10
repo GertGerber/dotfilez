@@ -345,49 +345,54 @@ REPO_URL="${REPO_URL:-https://github.com/GertGerber/dotfilez}"
 CLONE_DIR="${CLONE_DIR:-$HOME/dotfilez}"
 
 clone_via_gh() {
-  local repo_url="$REPO_URL" clone_dir="$CLONE_DIR"
-  local repo_path="${repo_url#https://github.com/}"; repo_path="${repo_path%.git}"
-  if [[ -z "$repo_path" || "$repo_path" == "$repo_url" ]]; then err "REPO_URL must be a GitHub https URL like https://github.com/owner/name[.git]"; return 1; fi
+  # Usage: git_sync_repo <repo-url> <dest-dir> [branch]
+  # Example: git_sync_repo https://github.com/user/project.git ~/project main
+  local repo_url="${1:?repo url required}"
+  local dest_dir="${2:?destination directory required}"
+  local branch="${3:-}"
 
-  local is_private="unknown"
-  if have_cmd gh; then
-    local qp; if qp="$(gh repo view "$repo_path" --json isPrivate -q '.isPrivate' 2>/dev/null)"; then case "$qp" in true|false) is_private="$qp";; esac; fi
-  fi
-  if [[ "$is_private" == "unknown" ]]; then
-    if git ls-remote --heads "$repo_url" &>/dev/null; then is_private="false"; else is_private="true"; fi
-  fi
-
-  if [[ -d "$clone_dir/.git" ]]; then
-    local current_remote; current_remote="$(git -C "$clone_dir" remote get-url origin 2>/dev/null || true)"
-    if [[ "$current_remote" != "$repo_url" && "$current_remote" != "https://github.com/${repo_path}.git" && "$current_remote" != "git@github.com:${repo_path}.git" ]]; then
-      err "Existing repo at $clone_dir points to '$current_remote' (expected $repo_url)."; err "Refusing to modify. Move or remove $clone_dir and retry."; return 1
+  if [[ -d "$dest_dir/.git" ]]; then
+    # Already a git repo: verify remote, then update
+    local current_remote
+    current_remote="$(git -C "$dest_dir" remote get-url origin 2>/dev/null || true)"
+    if [[ -z "$current_remote" ]]; then
+      echo "origin remote is missing in $dest_dir" >&2
+      return 1
     fi
-    info "Repository already present at $clone_dir; pulling latest…"
-    git -C "$clone_dir" fetch --tags --prune
-    if ! git -C "$clone_dir" diff --quiet || ! git -C "$clone_dir" diff --quiet --staged; then
-      warn "Working tree not clean; skipping pull to avoid clobbering local changes."; return 0
+    # Normalise https URL with/without .git for comparison
+    local norm_repo="${repo_url%.git}"
+    local norm_remote="${current_remote%.git}"
+    if [[ "$norm_remote" != "$norm_repo" && "$current_remote" != "git@github.com:${norm_repo#https://github.com/}.git" ]]; then
+      echo "destination exists but points to a different remote: $current_remote" >&2
+      return 1
     fi
-    git -C "$clone_dir" pull --ff-only
-    return 0
-  elif [[ -d "$clone_dir" && -n "$(ls -A "$clone_dir" 2>/dev/null)" ]]; then
-    local backup="${clone_dir}-backup-$(date +%Y%m%d%H%M%S)"; warn "$clone_dir exists and is not a git repo; moving to $backup"; mv "$clone_dir" "$backup"
-  fi
 
-  mkdir -p "$(dirname "$clone_dir")"
-
-  if [[ "$is_private" == "true" ]]; then
-    if have_cmd gh; then info "Cloning private repo with GitHub CLI…"; gh repo clone "$repo_path" "$clone_dir"
+    # Fetch and fast-forward only (refuse to overwrite local changes)
+    git -C "$dest_dir" fetch --tags --prune || return 1
+    if [[ -n "$branch" ]]; then
+      git -C "$dest_dir" checkout "$branch" || return 1
+      git -C "$dest_dir" merge --ff-only "origin/$branch" || return 1
     else
-      local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"; [[ -z "$token" ]] && { err "Repo appears private and no gh or token available."; return 1; }
-      info "Cloning private repo using GITHUB_TOKEN over HTTPS…"
-      local token_url="https://${token}:x-oauth-basic@github.com/${repo_path}.git"
-      git clone "$token_url" "$clone_dir"; git -C "$clone_dir" remote set-url origin "https://github.com/${repo_path}.git"
+      # Update the current branch
+      git -C "$dest_dir" pull --ff-only || return 1
     fi
+    echo "Updated: $dest_dir"
   else
-    info "Cloning public repo over HTTPS…"; git clone --depth 1 "$repo_url" "$clone_dir"
+    # Not a repo: clone (into empty or non-existent dir)
+    mkdir -p "$(dirname "$dest_dir")" || return 1
+    if [[ -e "$dest_dir" && -n "$(ls -A "$dest_dir" 2>/dev/null)" ]]; then
+      echo "destination directory exists and is not a git repo (non-empty): $dest_dir" >&2
+      return 1
+    fi
+    if [[ -n "$branch" ]]; then
+      git clone --branch "$branch" --depth 1 "$repo_url" "$dest_dir" || return 1
+    else
+      git clone --depth 1 "$repo_url" "$dest_dir" || return 1
+    fi
+    echo "Cloned: $repo_url -> $dest_dir"
   fi
-  info "Cloned to $clone_dir"
 }
+
 
 # ===========================
 # Post-Clone Hooks

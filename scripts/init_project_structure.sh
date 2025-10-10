@@ -5,7 +5,7 @@ set -euo pipefail
 # Infrastructure Platform: Repository Scaffolder
 # - Creates the directory tree and basic starter files (non-destructive by default)
 # - Safe to rerun: only writes missing files unless --force is given
-# - Usage: ./init_project_structure.sh --root . [--dry-run] [--force]
+# - Usage: ./scripts/init_project_structure.sh --root . [--dry-run] [--force]
 # ==============================================================================
 
 ROOT="."
@@ -17,6 +17,25 @@ ok()   { printf "✓ %s\n" "$*"; }
 info() { printf "• %s\n" "$*"; }
 warn() { printf "! %s\n" "$*" >&2; }
 die()  { printf "✗ %s\n" "$*" >&2; exit 1; }
+
+# Expand ~, ~user, and make absolute where possible
+expand_path() {
+  local p="$1"
+  if [[ "$p" == "~" || "$p" == ~/* ]]; then
+    p="${p/#\~/$HOME}"
+  elif [[ "$p" =~ ^~[^/]+(/.*)?$ ]]; then
+    local user="${p%%/*}"; user="${user#~}"
+    local rest="${p#~${user}}"
+    local home_dir
+    home_dir="$(getent passwd "$user" | cut -d: -f6 2>/dev/null || true)"
+    [[ -n "$home_dir" ]] && p="${home_dir}${rest}"
+  fi
+  if command -v realpath >/dev/null 2>&1; then
+    realpath -m "$p"
+  else
+    (cd "$(dirname "$p")" 2>/dev/null && printf "%s/%s\n" "$(pwd -P)" "$(basename "$p")") 2>/dev/null || printf "%s\n" "$p"
+  fi
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -41,7 +60,10 @@ EOF
   esac
 done
 
+ROOT="$(expand_path "$ROOT")"
 [[ -n "$ROOT" ]] || die "--root is required"
+[[ $DRY_RUN -eq 1 ]] && info "(dry run) no changes will be written"
+info "Scaffolding into: $ROOT"
 mkdir -p "$ROOT"
 
 # --- helpers ---------------------------------------------------------------
@@ -63,13 +85,14 @@ mkkeep() {
 }
 
 write_file() {
-  local path="$ROOT/$1"
+  local rel="$1"
+  local path="$ROOT/$rel"
   local mode="${2:-644}"
   shift 2
   local content="$*"
 
   if [[ -e "$path" && $FORCE -eq 0 ]]; then
-    info "skip $1 (exists)"
+    info "skip $rel (exists)"
     return
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
@@ -79,7 +102,7 @@ write_file() {
   mkdir -p "$(dirname "$path")"
   printf "%s" "$content" > "$path"
   chmod "$mode" "$path"
-  ok "file $1"
+  ok "file $rel"
 }
 
 sh_shebang='#!/usr/bin/env bash
@@ -124,34 +147,7 @@ TF_VAR_region=us-east-1
 ANSIBLE_STDOUT_CALLBACK=yaml
 "
 
-write_file "Makefile" 644 'SHELL := /usr/bin/env bash
-
-.PHONY: help fmt lint validate deploy
-help:
-	@echo "fmt       - format code"
-	@echo "lint      - run linters"
-	@echo "validate  - validate IaC"
-	@echo "deploy    - run deploy pipeline"
-
-fmt:
-	@echo ">> formatting"
-	@black python || true
-	@terraform -chdir=terraform/envs/dev fmt || true
-	@ansible-lint || true
-
-lint:
-	@echo ">> linting"
-	@ruff python || true
-
-validate:
-	@echo ">> validating"
-	@terraform -chdir=terraform/envs/dev init -backend=false || true
-	@terraform -chdir=terraform/envs/dev validate || true
-	@ansible-playbook -i ansible/inventories/dev/hosts.ini --syntax-check ansible/playbooks/site.yml || true
-
-deploy:
-	@./bin/deploy.sh
-'
+# (optional) Makefile is not overwritten; use mk/scaffold.mk for targets
 
 # docs
 mkd "docs/diagrams"

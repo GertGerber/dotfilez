@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 IFS=$'\n\t'
-set -x
 
 # make-executable.sh
 # - Select a folder/file via popup (fzf → zenity → dialog → readline fallback)

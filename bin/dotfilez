@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
-IFS=$'\n\t'
+set -euo pipefail
 
-# ===========================
-# Utilities & Styling
-# ===========================
+# ── Utilities & Styling ────────────────────────────────────────────────────────────────────
+# Colors and text styles for terminal output
+# Usage: fg RED; echo "This is red text"; echo "$RESET"
+# Note: tput may fail in non-interactive shells; we ignore such errors. 
+
+
+# # The RESET variable ensures we can reset styles after changing them.
 RESET="$(tput sgr0 || true)"
+
+# fg sets the foreground color based on the provided color name.
+# Supported colors: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA (or MAUVE), CYAN (or PEACH), WHITE
+# Usage: fg RED; echo "This is red text"; echo "$RESET"
+# If the terminal does not support colors, no changes are made.
 fg() {
   local name="${1^^}"
   case "$name" in
@@ -20,19 +28,55 @@ fg() {
     *)      printf '' ;;
   esac
 }
+
+# Logging functions
 info() { printf '%s[+] %s%s\n' "$(fg GREEN)" "$*" "$RESET"; }
 warn() { printf '%s[!] %s%s\n' "$(fg YELLOW)" "$*" "$RESET" >&2; }
 err()  { printf '%s[✗] %s%s\n' "$(fg RED)" "$*" "$RESET" >&2; }
 die()  { err "$*"; exit 1; }
+is_tty() { [[ -t 0 ]]; }
 
+# Error handling
 trap 'err "Aborted at line $LINENO. Review logs; partial state possible."' ERR
 
-have_cmd() { command -v "$1" >/dev/null 2>&1; }
-script_abs() { readlink -f "$0"; }
+# Check if a command exists
+# Usage: if have_cmd git; then echo "Git is installed"; fi  
+have_cmd()   { command -v "$1" >/dev/null 2>&1; }
 
-# ---------------------------------------
-# Banner
-# ---------------------------------------
+# Absolute path of the current script
+# Usage: script_abs
+script_abs() {
+  if have_cmd readlink; then readlink -f "$0"; elif have_cmd realpath; then realpath "$0"; else
+    # Fallback (works in typical Linux shells)
+    python3 - <<'PY' 2>/dev/null || printf '%s' "$0"
+import os,sys
+print(os.path.abspath(sys.argv[1]))
+PY
+  fi
+}
+
+# JSON escaping helper
+# Usage: echo 'Some "text" with special chars\n' | json_escape
+# Outputs: "Some \"text\" with special chars\n"
+# Requires Python 3
+json_escape() { python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'; }
+
+# Divider line for better readability in logs
+# Usage: divider
+#   Outputs a line of dashes to separate sections in the log.
+#   Example:
+#   divider
+#   echo "Starting section..."
+#   divider # Outputs: ----------------------------------------
+divider() { echo "----------------------------------------"; }
+
+
+# ── Banners ────────────────────────────────────────────────────────────────────
+# Prints a colorful ASCII art banner to the terminal.
+# Usage: print_banner
+# Note: Colors may not display correctly in all terminal emulators.
+#       Designed for typical 80-column terminals.
+#       Adjust the ASCII art as needed for different widths.
 print_banner() {
   printf '\n'
   printf '%b  ██████╗ ███████╗██████╗ ████████╗     ██████╗ ███████╗██████╗ ██████╗ ███████╗██████╗ %b Infrastructure Installer %b\n' "$(fg RED)" "$(fg PEACH)" "$RESET"
@@ -44,155 +88,214 @@ print_banner() {
   printf '\n'
 }
 
-# ===========================
-# Root -> Create admin user -> Re-exec
-# ===========================
+
+# ──  Detect OS ────────────────────────────────────────────────────────────────────
+# Detects the operating system family (debian/rhel).
+# Returns 'debian' for Debian-based systems (Debian, Ubuntu, Linux Mint).
+# Returns 'rhel' for Red Hat-based systems (RHEL, CentOS, Rocky Linux, AlmaLinux, Fedora).
+# Defaults to 'debian' if detection fails or OS is unrecognized.
+# Usage: PKG_FAMILY="$(detect_os)"
+# Note: This function reads /etc/os-release to determine the OS.
+detect_os() {
+  if [[ -r /etc/os-release ]]; then
+    . /etc/os-release
+    case "${ID:-}" in
+      debian|ubuntu|linuxmint) echo debian ;;
+      rhel|centos|rocky|almalinux|fedora) echo rhel ;;
+      *) echo debian ;;
+    esac
+  else
+    echo debian
+  fi
+}
+
+# Detect the OS family (debian/rhel) at script startup.
+# Stored in PKG_FAMILY for later use.
+PKG_FAMILY="$(detect_os)"
+
+# Ensures the script is running on a Debian-based system.
+# Exits with an error message if not.
+require_debian() {
+  [[ "$PKG_FAMILY" == debian ]] || die "Unsupported OS family: $PKG_FAMILY (Debian/Ubuntu only)."
+}
+
+
+
+# ── Root -> Create admin user -> Re-exec ────────────────────────────────────────────────────────────────────
+# Constants for admin groups
 ADMIN_GROUP_DEBIAN="sudo"
 ADMIN_GROUP_RHEL="wheel"
 
-validate_username() {
-  local u="$1"
-  [[ "$u" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]
-}
+# Validates a username against common Linux username rules.
+# Returns 0 (true) if valid, 1 (false) if invalid.
+# Rules: 1-32 chars, lowercase letters, digits, underscores, hyphens,
+#        must start with a letter or underscore.
+# Usage: if validate_username "myuser"; then echo "Valid"; else echo "Invalid"; fi
+validate_username() { local u="$1"; [[ "$u" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; }
 
-detect_admin_group() {
-  if have_cmd adduser; then
-    echo "$ADMIN_GROUP_DEBIAN"
-  else
-    echo "$ADMIN_GROUP_RHEL"
-  fi
-}
+# Detects the appropriate admin group based on the OS family.
+# Returns 'sudo' for Debian-based systems and 'wheel' for Red Hat-based systems.
+# Usage: ADMIN_GROUP="$(detect_admin_group)"
+# Note: This function relies on the PKG_FAMILY variable set during OS detection.
+detect_admin_group() { [[ "$PKG_FAMILY" == debian ]] && echo "$ADMIN_GROUP_DEBIAN" || echo "$ADMIN_GROUP_RHEL"; }
 
+# Ensure sudo is installed (Debian/Ubuntu only).
+# Exits with an error if installation fails.
 ensure_sudo_installed() {
-  if have_cmd sudo; then return; fi
+  have_cmd sudo && return 0
   info "Installing sudo..."
-  apt-get update -y
+  require_debian
+  apt-get -o Acquire::Retries=3 update -y
   DEBIAN_FRONTEND=noninteractive apt-get install -y sudo
 }
 
+# Preserve colour/locale when re-execing as target user
+reexec_as_user() {
+  local user="$1" self; self="$(script_abs)"
+  info "Re-running the installer as '$user'..."
+  local keep="TERM,COLORTERM,LANG,LC_ALL"; export LANG="${LANG:-C.UTF-8}" TERM="${TERM:-xterm}"
+  if command -v sudo >/dev/null 2>&1; then
+    exec sudo -iu "$user" --preserve-env="$keep" bash -lc "bash '$self' --as-user ${NON_INTERACTIVE:+--non-interactive}"
+  else
+    exec su -l "$user" -c "TERM='$TERM' LANG='$LANG' bash -lc 'bash \"$self\" --as-user ${NON_INTERACTIVE:+--non-interactive}'"
+  fi
+}
+
+# Main function to create an admin user if running as root.
+# If already running as non-root or with --as-user, does nothing.
+# Prompts for username, creates user, sets password, adds to admin group.
+# Grants limited passwordless sudo for specific bootstrap commands.
+# Finally, re-executes the script as the new user.
 create_admin_user_if_root() {
   local as_user_flag="${1:-}"
-  if [[ $EUID -ne 0 ]]; then
-    return 0
-  fi
-  # If we explicitly came back as user, skip creation
-  if [[ "$as_user_flag" == "--as-user" ]]; then
-    return 0
-  fi
+  if [[ $EUID -ne 0 ]]; then return 0; fi
+  [[ "$as_user_flag" == "--as-user" ]] && return 0
+  require_debian
 
   print_banner
-  info "You are running as root. Let's create your non-root admin user."
+  info "You are running as root. We'll create a non-root admin user."
+  is_tty || die "Non-interactive shell detected. Please run with a TTY to create the admin user, or preseed USERNAME."
 
-  local USERNAME=""
+  local USERNAME_INPUT="${USERNAME:-}"
+  local USERNAME_CHOSEN=""
   while :; do
-    read -r -p "Enter new admin username (e.g., gert): " USERNAME
-    if [[ -z "${USERNAME:-}" ]]; then
-      warn "Username cannot be empty."
-      continue
+    if [[ -n "$USERNAME_INPUT" ]]; then
+      USERNAME_CHOSEN="$USERNAME_INPUT"
+      info "Using provided USERNAME='$USERNAME_CHOSEN'"
+    else
+      read -r -p "Enter new admin username (e.g., gert): " USERNAME_INPUT
+      [[ -z "${USERNAME_INPUT:-}" ]] && { warn "Username cannot be empty."; continue; }
     fi
-    if ! validate_username "$USERNAME"; then
-      warn "Invalid username. Use lowercase letters, digits, _ or -, max length 32, starting with a letter or _."
-      continue
-    fi
-    if id "$USERNAME" &>/dev/null; then
-      warn "User '$USERNAME' already exists."
-      read -r -p "Use existing user '$USERNAME'? [y/N]: " yn
-      case "${yn,,}" in
-        y|yes) break ;;
-        *) continue ;;
-      esac
-    fi
-    break
+    if ! validate_username "$USERNAME_INPUT"; then warn "Invalid username. Use lowercase letters, digits, _ or -, max 32, starting with a letter or _."; USERNAME_INPUT=""; continue; fi
+    USERNAME_CHOSEN="$USERNAME_INPUT"; break
   done
+  export USERNAME="$USERNAME_CHOSEN"
 
-  # Create if missing
-  if ! id "$USERNAME" &>/dev/null; then
+  ensure_sudo_installed
+
+  if id "$USERNAME" &>/dev/null; then
+    info "User '$USERNAME' already exists."
+  else
     if have_cmd adduser; then
       info "Creating user '$USERNAME' (Debian/Ubuntu path)..."
-      adduser --gecos "" "$USERNAME"
+      adduser --disabled-password --gecos "" "$USERNAME"
+      if is_tty; then
+        info "Set a password for '$USERNAME':"; passwd "$USERNAME" || warn "Password not set."
+      else
+        warn "Non-interactive: leaving '$USERNAME' with disabled password."
+      fi
     elif have_cmd useradd; then
       info "Creating user '$USERNAME' (RHEL/Fedora path)..."
       useradd --create-home --shell /bin/bash "$USERNAME"
-      info "Set a password for '$USERNAME':"
-      passwd "$USERNAME"
+      is_tty && { info "Set a password for '$USERNAME':"; passwd "$USERNAME" || true; }
     else
       die "Neither adduser nor useradd found."
     fi
   fi
 
-  ensure_sudo_installed
-
-  local ADMIN_GROUP
-  ADMIN_GROUP="$(detect_admin_group)"
+  local ADMIN_GROUP; ADMIN_GROUP="$(detect_admin_group)"
   if getent group "$ADMIN_GROUP" >/dev/null 2>&1; then
     usermod -aG "$ADMIN_GROUP" "$USERNAME"
     info "Added '$USERNAME' to '$ADMIN_GROUP'."
   else
     warn "Admin group '$ADMIN_GROUP' not found; creating and assigning."
-    groupadd "$ADMIN_GROUP"
-    usermod -aG "$ADMIN_GROUP" "$USERNAME"
+    groupadd "$ADMIN_GROUP"; usermod -aG "$ADMIN_GROUP" "$USERNAME"
   fi
 
-  # Ensure the user can sudo without PATH issues
-  echo "$USERNAME ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/apt, /usr/bin/nala, /usr/bin/gh, /usr/bin/git" >/etc/sudoers.d/90-${USERNAME}-bootstrap
-  chmod 440 /etc/sudoers.d/90-${USERNAME}-bootstrap
-  info "Granted limited passwordless sudo for bootstrap commands."
+  # Limited passwordless sudo for bootstrap commands — validate first
+  local tmp_sudo="/tmp/90-${USERNAME}-bootstrap.$$"
+  cat >"$tmp_sudo" <<EOF
+${USERNAME} ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/apt, /usr/bin/nala, /usr/bin/gh, /usr/bin/git
+EOF
+  if visudo -cf "$tmp_sudo" >/dev/null 2>&1; then
+    install -m 0440 "$tmp_sudo" "/etc/sudoers.d/90-${USERNAME}-bootstrap"
+    info "Granted limited passwordless sudo for bootstrap commands."
+  else
+    rm -f "$tmp_sudo"; die "Refusing to install sudoers snippet; visudo validation failed."
+  fi
 
-  # Re-exec this script as the new user
-  local SELF
-  SELF="$(script_abs)"
-  info "Re-running the installer as '$USERNAME'..."
-  exec su -l "$USERNAME" -c "bash -lc 'bash \"$SELF\" --as-user'"
+  rm -f "$tmp_sudo"
+  info "User '$USERNAME' setup complete."
+  info "Please re-run the installer as '$USERNAME'."
+  warn "Exiting now to avoid running as root."
+  exit 0
+  # reexec_as_user "$USERNAME"
 }
 
-# ===========================
-# Package Management (uses sudo when not root)
-# ===========================
+
+# ── Package Management (uses sudo when not root) ────────────────────────────────────────────────────────────────────
+# Defaults to apt on Debian/Ubuntu, with optional nala frontend if available.
+# On RHEL/Fedora, this section would need to be adapted to use dnf/yum.
+# Usage: pkg_install git curl vim
+#        pkg_install "${PKGS[@]}"
+#        pkg_update_upgrade
+# Automatically uses nala if available, otherwise apt.
 PKG_TOOL="apt"
 USE_NALA=false
 
-_sudo() {
-  if [[ $EUID -eq 0 ]]; then
-    "$@"
-  else
-    sudo "$@"
-  fi
-}
+# Runs a command with sudo if not root; otherwise runs directly.
+# Usage: _sudo apt-get update
+_sudo() { if [[ $EUID -eq 0 ]]; then "$@"; else sudo "$@"; fi }
 
+# Install nala if missing (Debian/Ubuntu only).
+# Sets USE_NALA=true and PKG_TOOL="nala" if successful.
+# Falls back to apt if nala installation fails.
+# Usage: install_nala_if_missing
 install_nala_if_missing() {
-  if have_cmd nala; then
-    USE_NALA=true
-    PKG_TOOL="nala"
-    return
-  fi
-
+  [[ "$PKG_FAMILY" == debian ]] || { warn "Non-Debian OS detected; skipping nala/apt-specific steps."; return 0; }
+  if have_cmd nala; then USE_NALA=true; PKG_TOOL="nala"; return; fi
   info "Installing nala (faster apt frontend)..."
-  _sudo apt-get update -y
+  _sudo apt-get -o Acquire::Retries=3 update -y
   if DEBIAN_FRONTEND=noninteractive _sudo apt-get install -y nala; then
-    USE_NALA=true
-    PKG_TOOL="nala"
-    info "nala installed."
+    USE_NALA=true; PKG_TOOL="nala"; info "nala installed."
   else
-    warn "Failed to install nala; will fall back to apt."
-    USE_NALA=false
-    PKG_TOOL="apt"
+    warn "Failed to install nala; will fall back to apt."; USE_NALA=false; PKG_TOOL="apt"
   fi
 }
 
+# Update & upgrade packages
+# Automatically uses nala if available, otherwise apt.
+# Usage: pkg_update_upgrade
 pkg_update_upgrade() {
+  require_debian
   if $USE_NALA; then
     info "Updating & upgrading via nala..."
     _sudo nala update
     DEBIAN_FRONTEND=noninteractive _sudo nala upgrade -y
   else
     info "Updating & upgrading via apt..."
-    _sudo apt-get update -y
+    _sudo apt-get -o Acquire::Retries=3 update -y
     DEBIAN_FRONTEND=noninteractive _sudo apt-get upgrade -y
   fi
 }
 
+# Install packages (array or list)
+# Usage: pkg_install git curl vim
+#        pkg_install "${PKGS[@]}"
+# Automatically uses nala if available, otherwise apt.
 pkg_install() {
   local pkgs=("$@")
+  require_debian
   if $USE_NALA; then
     DEBIAN_FRONTEND=noninteractive _sudo nala install -y "${pkgs[@]}" || {
       warn "nala install failed; retrying with apt..."
@@ -203,218 +306,239 @@ pkg_install() {
   fi
 }
 
-# ===========================
-# Env & Inputs
-# ===========================
-# ENV_FILE="/etc/dotfilez.env"
-ENV_FILE="$HOME/.cache/etc/dotfilez.env"
 
-load_env_if_present() {
-  if [[ -f "$ENV_FILE" ]]; then
-    # shellcheck disable=SC1090
-    _sudo bash -lc "source \"$ENV_FILE\"" || true
-    # Also source in current shell if readable
-    if [[ -r "$ENV_FILE" ]]; then
-      # shellcheck disable=SC1090
-      source "$ENV_FILE"
-      info "Loaded existing env from $ENV_FILE"
-    fi
-  fi
-}
-
-ask_or_keep() {
-  local var_name="$1" prompt="$2"
-  local current="${!var_name:-}"
-  if [[ -n "$current" ]]; then
-    read -r -p "$prompt [$current]: " input || true
-    export "$var_name"="${input:-$current}"
-  else
-    read -r -p "$prompt: " input
-    export "$var_name"="$input"
-  fi
-}
-
-save_env() {
-  umask 0177
-  local tmp_file
-  tmp_file="$(mktemp)"
-  cat >"$tmp_file" <<EOF
-GIT_NAME=${GIT_NAME}
-GIT_EMAIL=${GIT_EMAIL}
-GITHUB_TOKEN=${GITHUB_TOKEN}
-EOF
-  _sudo mv "$tmp_file" "$ENV_FILE"
-  _sudo chmod 600 "$ENV_FILE"
-  info "Saved machine variables to $ENV_FILE"
-
-# Ensure exported
-  export GIT_NAME GIT_EMAIL GITHUB_TOKEN
-}
-
-# ===========================
-# Git & GitHub Setup
-# ===========================
-ensure_gh() {
-  if have_cmd gh; then
-    info "GitHub CLI (gh) already present."
+# ── Github Login ────────────────────────────────────────────────────────────────────
+# Ensures GitHub CLI (gh) is authenticated, prompting for a Personal Access Token if needed.
+# Usage: ensure_gh_login
+# Note: Requires gh to be installed and available in PATH.
+#       The token is read from stdin (hidden input) and passed to gh; not stored in env files.
+#       Disables interactive prompts globally for gh to avoid future wizards.
+#       Optionally sets up Git to use gh's auth for HTTPS pushes (commented out
+ensure_gh_login() {
+  if gh auth status &>/dev/null; then
+    # Already authenticated; nothing to do.
     return
   fi
 
-  info "Installing GitHub CLI (gh)..."
-  # Call the function directly; it wraps sudo internally.
-  if pkg_install gh; then
-    info "Installed gh via ${PKG_TOOL}."
-  else
-    warn "Native package 'gh' not found; setting up GitHub apt repo..."
-    # Debian/Ubuntu path: add official GitHub CLI repo and install
-    _sudo apt-get update -y
-    _sudo apt-get install -y curl ca-certificates gnupg
-    _sudo mkdir -p -m 755 /etc/apt/keyrings
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-      | _sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
-    _sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-    # shellcheck disable=SC1091
-    . /etc/os-release
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages ${VERSION_CODENAME} main" \
-      | _sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-    _sudo apt-get update -y
-    _sudo apt-get install -y gh || die "Failed to install GitHub CLI."
+  echo "GitHub CLI is not authenticated."
+  # Ask once; hide input; do NOT write to disk ourselves.
+  read -rsp "Paste your GitHub Personal Access Token (input hidden): " _tkn
+  echo
+  if [[ -z "${_tkn}" ]]; then
+    echo "No token provided. Exiting."
+    exit 1
   fi
-}
 
-configure_git_and_gh() {
-  # fail fast on missing deps
-  command -v git >/dev/null 2>&1 || die "git is not installed."
-  command -v gh  >/dev/null 2>&1 || die "GitHub CLI (gh) is not installed."
+  # Store credentials inside gh (hosts.yml). No env files used.
+  printf '%s' "${_tkn}" | gh auth login --with-token
+  unset _tkn
 
-  # inputs
-  : "${GIT_NAME:?GIT_NAME is empty.}"
-  : "${GIT_EMAIL:?GIT_EMAIL is empty.}"
-  : "${GITHUB_TOKEN:?GITHUB_TOKEN is empty.}"
+  # Disable interactive prompts globally for this user to avoid future wizards.
+  gh config set prompt disabled >/dev/null
 
-  info "Configuring git user identity (global)..."
-  git config --global user.name  "$GIT_NAME"
-  git config --global user.email "$GIT_EMAIL"
-  # optional sensible defaults:
-  git config --global init.defaultBranch main >/dev/null 2>&1 || true
-  git config --global pull.rebase false        >/dev/null 2>&1 || true
+  # Optional: let Git reuse gh's auth for HTTPS pushes (still non-interactive).
+  # gh auth setup-git --hostname github.com
 
-  # don’t leak secrets if -x is on
-  shopt -qo xtrace && _TRACE_ON=1 || _TRACE_ON=0
-  [ "$_TRACE_ON" -eq 1 ] && set +x
-
-  info "Logging into GitHub CLI via token..."
-  # prefer GH_TOKEN (what gh uses); set it temporarily in env for this pipeline only
-  GH_TOKEN="$GITHUB_TOKEN" printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token --hostname github.com
-
-  # restore tracing
-  [ "$_TRACE_ON" -eq 1 ] && set -x
-
-  # verify auth and set up git credential helper
-  gh auth status --hostname github.com || die "GitHub auth failed."
-  gh auth setup-git >/dev/null 2>&1 || true
-
-  # optional: sanity check scopes (non-fatal)
-  gh api user >/dev/null 2>&1 || warn "Token may lack required scopes."
-
-  # optional: avoid leaving token in env
-  unset GH_TOKEN
-  # keep GITHUB_TOKEN exported only if other tooling needs it; else:
-  # unset GITHUB_TOKEN
-
-  success "Git and GitHub CLI are configured."
+  # Verify
+  gh auth status >/dev/null || { echo "Authentication failed."; exit 1; }
 }
 
 
 
-# ===========================
-# Clone Repo
-# ===========================
-REPO_URL="https://github.com/GertGerber/dotfilez"
-CLONE_DIR="/opt/dotfilez"
+# ── Git Login ────────────────────────────────────────────────────────────────────
+# Ensures Git global user.name and user.email are set, prompting if missing.
+# Usage: ensure_git_login
+# Note: Uses GIT_USER_NAME and GIT_USER_EMAIL env vars if set; otherwise uses defaults.
+#       Does not overwrite existing Git config values.
+ensure_git_login() {
+    echo "Configuring Git (if needed)…"
+    # Set name if not already set
+    if [[ -z "$(git config --global user.name || true)" ]]; then
+    git config --global user.name "${GIT_USER_NAME:-Your Name}"
+    fi
+    # Set email if not already set
+    if [[ -z "$(git config --global user.email || true)" ]]; then
+    git config --global user.email "${GIT_USER_EMAIL:-you@example.com}"
+    fi
+}
 
-clone_or_update_repo() {
+
+# ── Clone Repo ────────────────────────────────────────────────────────────────────
+
+clone_via_gh() {
+  echo "Cloning or updating repo…"
+
+  # Setup repo details
+  GITHUB_REPO="GertGerber/dotfilez"
+  CLONE_DIR="$HOME/dotfilez"
+
+  # Make sure target dir exists
+  mkdir -p "$HOME/Github"   # no sudo in your HOME
+
+  # Clone or pull latest
   if [[ -d "$CLONE_DIR/.git" ]]; then
-    info "Repository already present; pulling latest."
-    _sudo git -C "$CLONE_DIR" remote set-url origin "$REPO_URL" || true
-    _sudo git -C "$CLONE_DIR" fetch --all --prune
-    _sudo git -C "$CLONE_DIR" pull --ff-only
-    # ensure current user owns workspace
-    _sudo chown -R "$(id -u)":"$(id -g)" "$CLONE_DIR"
+    echo "Repository already present. Pulling latest…"
+    git -C "$CLONE_DIR" pull --ff-only origin main
   else
-    info "Cloning repository into $CLONE_DIR ..."
-    _sudo mkdir -p "$CLONE_DIR"
-    _sudo chown "$(id -u)":"$(id -g)" "$CLONE_DIR"
-    git clone "$REPO_URL" "$CLONE_DIR"
+    echo "Cloning repository…"
+    gh repo clone "$GITHUB_REPO" "$CLONE_DIR"
   fi
+
+  # Display final message
+  echo "Done. Repo is at: $CLONE_DIR"
 }
 
-# ===========================
-# Post-Clone Hooks
-# ===========================
+# ── Post-Clone Hooks ────────────────────────────────────────────────────────────────────
+# Customize this function to run any post-clone scripts or actions.
+# By default, it looks for a create_user.sh script in the cloned repo and runs it if found.
+# Usage: post_clone_actions
+# Note: Skips interactive steps if no TTY is available.
 post_clone_actions() {
-  info "Post-clone actions section (customize as needed)."
-  # Example hook: run create_user.sh if it exists and is executable
+  info "Post-clone actions section (customise as needed)."
+  if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
   if [[ -x "$CLONE_DIR/create_user.sh" ]]; then
-    warn "About to run: $CLONE_DIR/create_user.sh (press Enter to continue or Ctrl+C to skip)"
-    read -r _
-    bash "$CLONE_DIR/create_user.sh" || warn "create_user.sh exited with non-zero status."
+    warn "About to run: $CLONE_DIR/create_user.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true; bash "$CLONE_DIR/create_user.sh" || warn "create_user.sh exited with non-zero status."
   else
     warn "No create_user.sh found at $CLONE_DIR; skipping user creation step."
   fi
 }
 
-# ===========================
-# Main (user-mode)
-# ===========================
-PKG_WANTS=(git ca-certificates)
-ENV_FILE="/etc/dotfilez.env"
+
+
+# ── Summary Output ────────────────────────────────────────────────────────────────────
+# Writes a JSON summary of the installation to /var/tmp/infra-installer-summary.json (or custom path).
+# Usage: write_summary
+# Note: Requires jq or python3 for JSON formatting.
+#       Adjust SUMMARY_PATH env var to change output location.
+#       Includes timestamp, user, package manager info, git/gh status, and repo details
+write_summary() {
+  local summary_path="${SUMMARY_PATH:-/var/tmp/infra-installer-summary.json}"
+
+  # Determine GitHub auth status
+  local gh_status="unauthenticated"
+  if gh auth status -h github.com >/dev/null 2>&1; then
+    gh_status="authenticated"
+  fi
+
+  # Effective user (fixes nested default expansion)
+  local effective_user="${USER:-${USERNAME:-unknown}}"
+
+  # Prefer values actually set in git config; fall back to env defaults used earlier
+  local git_name git_email
+  git_name="$(git config --global user.name || true)"
+  git_email="$(git config --global user.email || true)"
+  git_name="${git_name:-${GIT_USER_NAME:-}}"
+  git_email="${git_email:-${GIT_USER_EMAIL:-}}"
+
+  # Build JSON payload
+  local data
+  data=$(cat <<JSON
+{
+  "timestamp": "$(date -Is)",
+  "user": "${effective_user}",
+  "username": "${USERNAME:-}",
+  "pkg_family": "${PKG_FAMILY}",
+  "pkg_tool": "${PKG_TOOL}",
+  "use_nala": ${USE_NALA},
+  "git": { "name": "${git_name}", "email": "${git_email}" },
+  "gh": { "status": "${gh_status}" },
+  "repo": { "url": "${GITHUB_REPO}", "dir": "${CLONE_DIR}" }
+}
+JSON
+)
+
+  # Write to file
+  printf '%s' "$data" > "$summary_path" || { warn "Failed to write summary to $summary_path"; return 1; }
+  info "Wrote summary to $summary_path"
+
+  # Also print a pretty summary to the screen
+  echo
+  divider
+  info "Summary:"
+  if have_cmd jq; then
+    printf '%s' "$data" | jq .
+  elif have_cmd python3; then
+    printf '%s' "$data" | python3 -m json.tool
+  else
+    # Fallback: print raw JSON
+    printf '%s\n' "$data"
+  fi
+  divider
+}
+
+
+
+# ── Main (user-mode) ────────────────────────────────────────────────────────────────────
+PKG_WANTS=(git ca-certificates gh)
 
 main_user_mode() {
+  divider
+  # Print banner
   print_banner
 
+  divider
+  # Ensure we're on Debian/Ubuntu
+  require_debian
+
+  divider
   # Make sure sudo is usable (will prompt once if NOPASSWD not set)
   if [[ $EUID -ne 0 ]]; then
-    if ! have_cmd sudo; then
-      die "sudo not available; please run as root first so I can install it."
-    fi
+    if ! have_cmd sudo; then die "sudo not available; please run as root first so we can install it."; fi
     sudo -v || die "Unable to obtain sudo privileges."
   fi
 
+  divider
+  # Install nala if missing (sets PKG_TOOL and USE_NALA)
   install_nala_if_missing
+
+  divider
+  # Update & upgrade packages
   pkg_update_upgrade
+
+  divider
+  # Install prerequisite packages
+  info "Installing prerequisite packages: ${PKG_WANTS[*]}..."
   pkg_install "${PKG_WANTS[@]}"
 
-  # Gather env (persisted)
-  load_env_if_present
-  ask_or_keep "GIT_NAME" "Enter your Git Name"
-  ask_or_keep "GIT_EMAIL" "Enter your Git Email"
-  ask_or_keep "GITHUB_TOKEN" "Enter your GitHub Personal Access Token (stored in $ENV_FILE)"
-  save_env
+  divider
+  # Ensure Git is configured
+  ensure_git_login
 
-  # NEW: reload the saved environment
-  if [[ -r "$ENV_FILE" ]]; then
-    # shellcheck disable=SC1090
-    source "$ENV_FILE"
-    info "Reloaded $ENV_FILE into current environment"
-  fi
+  divider
+  # Ensure GitHub CLI is authenticated
+  ensure_gh_login
 
-  # GitHub CLI + auth
-  ensure_gh
-  configure_git_and_gh
+  divider
+  # Clone or update the repo via gh
+  clone_via_gh
 
-  # Clone repo
-  clone_or_update_repo
-
-  # Post-clone section
+  divider
+  # Run any post-clone actions (customise as needed)
   post_clone_actions
 
-  info "All done. This LXC is now primed as your homelab deployment server. 🚀"
+  divider
+  # Write summary JSON to /var/tmp (or custom path)
+  write_summary
+
+  divider
+  info "Bootstrap completed successfully!"
+
+  divider
+  $CLONE_DIR/scripts/make-executable.sh "$CLONE_DIR"
+  $CLONE_DIR/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
+
 }
 
-# ===========================
-# Entrypoint
-# ===========================
-AS_USER_FLAG="${1:-}"
+ 
+
+# ── CLI Args & Entrypoint ────────────────────────────────────────────────────────────────────
+# Parse --as-user and --non-interactive flags
+AS_USER_FLAG=""; for a in "$@"; do case "$a" in --as-user) AS_USER_FLAG="--as-user";; --non-interactive) NON_INTERACTIVE=true;; esac; done
+
+# If running as root, create admin user and re-exec as that user
 create_admin_user_if_root "$AS_USER_FLAG"
+
+# Now running as non-root user; proceed with main user-mode logic
 main_user_mode
+
+# End of script

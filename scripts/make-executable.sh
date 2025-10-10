@@ -100,7 +100,7 @@ make_exec() {
   local target="$1"
   if [[ -d "$target" ]]; then
     info "Directory selected: $target"
-    mapfile -d '' files < <(find "$target" -type f -name '*.sh' -print0)
+    mapfile -d '' files < <(find "$target"  -L -type f -name '*.sh' -print0)
     if (( ${#files[@]} == 0 )); then
       warn "No *.sh files found under: $target"
       return 0

@@ -234,7 +234,12 @@ EOF
     rm -f "$tmp_sudo"; die "Refusing to install sudoers snippet; visudo validation failed."
   fi
 
-  reexec_as_user "$USERNAME"
+  rm -f "$tmp_sudo"
+  info "User '$USERNAME' setup complete."
+  info "Please re-run the installer as '$USERNAME'."
+  warn "Exiting now to avoid running as root."
+  exit 0
+  # reexec_as_user "$USERNAME"
 }
 
 

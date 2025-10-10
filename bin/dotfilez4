@@ -247,8 +247,20 @@ create_env_file_if_missing() {
   fi
 }
 
-load_env_if_present() { [[ -f "$ENV_FILE" ]] && { # shellcheck disable=SC1090
-  source "$ENV_FILE" || true; info "Loaded existing env from $ENV_FILE"; } }
+# load_env_if_present() { [[ -f "$ENV_FILE" ]] && { # shellcheck disable=SC1090
+#  source "$ENV_FILE" || true; info "Loaded existing env from $ENV_FILE"; } }
+load_env_if_present() {
+  if [[ -f "$ENV_FILE" ]]; then
+    info "Loading env from $ENV_FILE"
+    # shellcheck disable=SC1090
+    source "$ENV_FILE" || warn "Failed to source $ENV_FILE; continuing with current env."
+    info "Loaded existing env from $ENV_FILE"
+  else
+    warn "Env file not found at $ENV_FILE; will prompt for missing values if needed."
+  fi
+}
+
+
 
 # Only prompt if var is unset/empty; otherwise keep current value
 ask_if_missing() {

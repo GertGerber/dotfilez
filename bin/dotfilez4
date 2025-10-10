@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 # Optional debug tracing: export DEBUG=1 to enable
-# [[ "${DEBUG:-0}" == 1 ]] && set -x
 IFS=$'\n\t'
 
 # =====================================================================================
@@ -37,9 +36,7 @@ err()  { printf '%s[✗] %s%s\n' "$(fg RED)" "$*" "$RESET" >&2; }
 die()  { err "$*"; exit 1; }
 is_tty() { [[ -t 0 ]]; }
 
-# trap 'err "Aborted at line $LINENO. Review logs; partial state possible."' ERR
-trap 'status=$?; cmd=${BASH_COMMAND:-?}; src=${BASH_SOURCE[0]##*/}; err "[DEBUG] Command: \"${cmd}\" | Exit: ${status} | File: ${src} | Line: ${LINENO}. Use --debug for trace. Partial state possible."' ERR
-
+trap 'err "Aborted at line $LINENO. Review logs; partial state possible."' ERR
 
 have_cmd()   { command -v "$1" >/dev/null 2>&1; }
 script_abs() {
@@ -278,21 +275,10 @@ GIT_EMAIL=${GIT_EMAIL}
 GITHUB_TOKEN=${GITHUB_TOKEN:-}
 USERNAME=${USERNAME:-}
 EOF
-
-  # Escalate safely if target not writable by current user (e.g., /etc/dotfilez.env)
-  if [[ -e "$ENV_FILE" && ! -w "$ENV_FILE" ]] || [[ ! -e "$ENV_FILE" && ! -w "$(dirname "$ENV_FILE")" ]]; then
-    info "Saving machine variables to $ENV_FILE with sudo"
-    _sudo install -m 600 "$tmp_file" "$ENV_FILE"
-  else
-    mv "$tmp_file" "$ENV_FILE"
-    chmod 600 "$ENV_FILE"
-  fi
-  rm -f "$tmp_file" 2>/dev/null || true
-
+  mv "$tmp_file" "$ENV_FILE"; chmod 600 "$ENV_FILE"
   info "Saved machine variables to $ENV_FILE"
   export GIT_NAME GIT_EMAIL GITHUB_TOKEN USERNAME
 }
-
 
 # ===========================
 # Git & GitHub Setup
@@ -519,19 +505,7 @@ main_user_mode() {
 # ===========================
 # CLI Args & Entrypoint
 # ===========================
-AS_USER_FLAG=""
-for a in "$@"; do
-  case "$a" in
-    --as-user)         AS_USER_FLAG="--as-user" ;;
-    --non-interactive) NON_INTERACTIVE=true ;;
-    --debug)           DEBUG=1 ;;
-    --log=*)           LOG_FILE="${a#--log=}" ;;
-  esac
-done
-
-# Enable debug tracing and optional logging
-if [[ "${DEBUG:-0}" == 1 ]]; then set -x; fi
-if [[ -n "${LOG_FILE:-}" ]]; then exec > >(tee -a "$LOG_FILE") 2>&1; fi
+AS_USER_FLAG=""; for a in "$@"; do case "$a" in --as-user) AS_USER_FLAG="--as-user";; --non-interactive) NON_INTERACTIVE=true;; esac; done
 
 create_admin_user_if_root "$AS_USER_FLAG"
 main_user_mode

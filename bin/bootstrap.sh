@@ -430,7 +430,7 @@ JSON
 
 
 # ── Main (user-mode) ────────────────────────────────────────────────────────────────────
-PKG_WANTS=(git ca-certificates)
+PKG_WANTS=(git ca-certificates gh)
 
 main_user_mode() {
   divider

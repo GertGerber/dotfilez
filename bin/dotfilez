@@ -399,8 +399,8 @@ post_clone_actions() {
   if [[ -x "$CLONE_DIR/scripts/make-executable.sh" ]]; then
     divider
     warn "About to run: $CLONE_DIR/create_user.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true; bash "$CLONE_DIR/create_user.sh" || warn "create_user.sh exited with non-zero status."
-    $CLONE_DIR/scripts/make-executable.sh "$CLONE_DIR"
-    $CLONE_DIR/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
+    _sudo $CLONE_DIR/scripts/make-executable.sh "$CLONE_DIR"
+    _sudo $CLONE_DIR/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
 
     
   else

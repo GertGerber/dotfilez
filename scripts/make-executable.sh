@@ -74,9 +74,9 @@ pick_path() {
 # --------------- Core logic ---------------
 make_exec() {
   local target="$1"
-  echo "Target path: $target"
+  info "Target path: $target"
   if [[ -d "$target" ]]; then
-    info "Directory selected for make executable: $target"
+    info "111 Directory selected for make executable: $target"
     sudo mapfile -d '' files < <(sudo find "$target" -type f -name '*.sh' -print0)
     if (( ${#files[@]} == 0 )); then
       warn "No *.sh files found under: $target"

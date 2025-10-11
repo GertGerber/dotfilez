@@ -1,21 +1,6 @@
 #!/usr/bin/env bash
 
 
-# # ---------------- Get sources Start ----------------
-# # DOTS="${DOTS:-$HOME/dotfilez}"
-# if [ -n "$SUDO_USER" ]; then
-#   # Safest: query the account database
-#   user_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
-#   # or quick-and-handy:
-#   # user_home="$(eval echo "~$SUDO_USER")"
-# else
-#   user_home="$HOME"
-# fi
-# echo "$user_home"
-
-
-# DOTS="$user_home/dotfilez"
-# echo "[postdeploy] Using DOTS=$DOTS"
 # ---------------- Get sources Start ----------------
 # Resolve project root if DOTS isn't set
 DOTS="${DOTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -25,6 +10,8 @@ DOTS="${DOTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$DOTS/scripts/helpers/common.sh"
 # shellcheck disable=SC1091
 source "$DOTS/scripts/helpers/pkg.sh"
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/error_hadling.sh
 # ---------------- Get sources End ------------------
 
 set -euo pipefail

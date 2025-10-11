@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
 
-# ---------------- Variables Start ----------------
-# shellcheck source=../scripts/helpers/env.sh
-. "${DOTFILEZ_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/scripts/helpers/env.sh"
-# ---------------- Variables Start ------------------
+# ---------------- Get sources Start ----------------
+DOTS="${DOTS:-$HOME/dotfilez}"
+. "$DOTS/scripts/helpers/common.sh"
+. "$DOTS/scripts/helpers/pkg.sh"
+. "$DOTS/scripts/helpers/identity.sh"
+# ---------------- Get sources End ------------------ 
 
 set -euo pipefail
 
@@ -38,51 +40,32 @@ install_ansible_galaxy_collections() {
   set -euo pipefail
 
   # ---- helpers ---------------------------------------------------------------
-  has() { command -v "$1" >/dev/null 2>&1; }
-
-  pkg_install() {
-    if has apt-get; then
-      _sudo apt-get update -y
-      _sudo apt-get install -y --no-install-recommends "$@"
-    elif has dnf; then
-      _sudo dnf install -y "$@"
-    elif has yum; then
-      _sudo yum install -y "$@"
-    elif has pacman; then
-      _sudo pacman -Sy --noconfirm "$@"
-    elif has apk; then
-      _sudo apk add --no-cache "$@"
-    else
-      echo "Unsupported package manager. Install these manually: python3, pipx (or pip), git, ansible" >&2
-    fi
-  }
-
-  ensure_pipx() {
-    if ! has pipx; then
-      if has python3 -o -x /usr/bin/python3; then
+    ensure_pipx() {
+    if ! have_cmd pipx; then
+      if have_cmd python3 -o -x /usr/bin/python3; then
         pkg_install python3-pip || true
-        python3 -m pip install --user --upgrade pipx
+        _sudo python3 -m pip install --user --upgrade pipx
         # Ensure ~/.local/bin on PATH for current session
         export PATH="$HOME/.local/bin:$PATH"
       else
         pkg_install python3 python3-pip
-        python3 -m pip install --user --upgrade pipx
+        _sudo python3 -m pip install --user --upgrade pipx
         export PATH="$HOME/.local/bin:$PATH"
       fi
     fi
   }
 
   ensure_ansible() {
-    if has ansible-galaxy && has ansible; then
+    if have_cmd ansible-galaxy && have_cmd ansible; then
       return
     fi
-    if has pipx; then
-      pipx install --include-deps ansible-core || true
+    if have_cmd pipx; then
+      _sudo pipx install --include-deps ansible-core || true
       # On some distros ansible CLI meta-package is handy:
-      pipx install ansible || true
+      _sudo pipx install ansible || true
     else
       # OS package fallback
-      if has apt-get; then
+      if have_cmd apt-get; then
         pkg_install software-properties-common || true
         pkg_install ansible
       else
@@ -93,18 +76,18 @@ install_ansible_galaxy_collections() {
 
   ensure_proxmox_python_deps() {
     # Proxmox modules commonly need proxmoxer + requests
-    if has pipx; then
+    if have_cmd pipx; then
       # Install into the ansible venv if present, else into a dedicated one
       if pipx list | grep -qE 'package +ansible(\b|-core\b)'; then
-        pipx runpip ansible install --upgrade proxmoxer requests
+        _sudo pipx runpip ansible install --upgrade proxmoxer requests
       elif pipx list | grep -q 'ansible-core'; then
-        pipx runpip ansible-core install --upgrade proxmoxer requests
+        _sudo pipx runpip ansible-core install --upgrade proxmoxer requests
       else
-        pipx install proxmoxer || true
-        pipx inject proxmoxer requests || true
+        _sudo pipx install proxmoxer || true
+        p_sudo ipx inject proxmoxer requests || true
       fi
     else
-      python3 -m pip install --user --upgrade proxmoxer requests
+      _sudo python3 -m pip install --user --upgrade proxmoxer requests
     fi
   }
 
@@ -131,7 +114,7 @@ collections:
   - name: community.grafana
   - name: community.kubernetes
   - name: community.libvirt
-  - name: community.hashi_vault
+  - name: community.have_cmdhi_vault
   - name: community.mongodb
   - name: community.windows        # safe to include; only used on Windows hosts
 
@@ -141,8 +124,8 @@ collections:
 YAML
 
   # Install/update collections (idempotent)
-  if has ansible-galaxy; then
-    ansible-galaxy collection install -r "$req" --upgrade
+  if have_cmd ansible-galaxy; then
+    _sudo ansible-galaxy collection install -r "$req" --upgrade
   else
     echo "ansible-galaxy not found in PATH; ensure your shell PATH includes pipx shims (e.g., \$HOME/.local/bin)." >&2
     return 1
@@ -164,8 +147,7 @@ main_user_mode() {
   divider
   # Install packages
   info "Installing packages: ${PKG_WANTS[*]}..."
-  # pkg_install "${PKG_WANTS[@]}"
-  _sudo nala install "${PKG_WANTS[@]}"
+  pkg_install "${PKG_WANTS[@]}"
 
   divider
   # install Ansible + common Galaxy collections (incl. Proxmox)

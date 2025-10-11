@@ -1,21 +1,12 @@
 #!/usr/bin/env bash
 
-# ---------------- Sudo Start ----------------
-# Resolve repo root (works from any cwd and via symlinks)
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-REPO_ROOT="$(cd -- "${SCRIPT_DIR%/*}" && pwd -P)"  # tweak to your layout
-# Or: REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || cd "$SCRIPT_DIR/.." && pwd -P)"
+# ---------------- Get sources Start ----------------
+DOTS="${DOTS:-$HOME/dotfilez}"
+. "$DOTS/scripts/helpers/common.sh"
+. "$DOTS/scripts/helpers/pkg.sh"
+. "$DOTS/scripts/helpers/identity.sh"
+# ---------------- Get sources End ------------------ 
 
-# Opt-in to forbidding raw sudo (comment out where you truly need sudo)
-export FORBID_DIRECT_SUDO=1
-
-# Source helpers
-# If your helpers live at scripts/helpers/privilege.sh from repo root:
-# shellcheck source=scripts/helpers/privilege.sh
-. "$REPO_ROOT/scripts/helpers/*.sh"
-
-# Prefix commands with _sudo to auto-elevate if needed.
-# ---------------- Sudo End ------------------
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -25,30 +16,6 @@ IFS=$'\n\t'
 # - If a folder: chmod +x all *.sh files recursively
 # - If a file: chmod +x just that file
 # - Optional: pass a path as arg to skip the picker
-
-# ---------------- Utilities ----------------
-RESET="$(tput sgr0 2>/dev/null || true)"
-fg() {
-  local n="${1^^}"
-  case "$n" in
-    RED)    tput setaf 1 2>/dev/null || true ;;
-    GREEN)  tput setaf 2 2>/dev/null || true ;;
-    YELLOW) tput setaf 3 2>/dev/null || true ;;
-    BLUE)   tput setaf 4 2>/dev/null || true ;;
-    CYAN)   tput setaf 6 2>/dev/null || true ;;
-    *) : ;;
-  esac
-}
-
-die() {
-  fg RED >&2
-  printf '✖ %s\n' "$*" >&2
-  printf '%s' "$RESET" >&2
-  exit 1
-}
-info() { fg BLUE;  printf 'ℹ %s\n' "$*"; printf '%s' "$RESET"; }
-ok()   { fg GREEN; printf '✔ %s\n' "$*"; printf '%s' "$RESET"; }
-warn() { fg YELLOW;printf '⚠ %s\n' "$*"; printf '%s' "$RESET"; }
 
 # --------------- Picker logic ---------------
 pick_path() {

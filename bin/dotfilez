@@ -409,7 +409,7 @@ clone_via_gh() {
 # Note: Skips interactive steps if no TTY is available.
 
 ensure_alias() {
-  local dest="$1"
+  # local dest="$1"
   local rcfile
   # choose rcfile
   if is_root; then

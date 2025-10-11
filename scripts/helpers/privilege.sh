@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Idempotent privilege helpers. Source in every script.
 # shellcheck shell=bash
 set -o errexit -o pipefail -o nounset

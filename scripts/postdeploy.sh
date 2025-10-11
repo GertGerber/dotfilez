@@ -1,18 +1,13 @@
 #!/usr/bin/env bash
 
 # ---------------- Sudo Start ----------------
-# Resolve repo root (works from any cwd and via symlinks)
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-REPO_ROOT="$(cd -- "${SCRIPT_DIR%/*}" && pwd -P)"  # tweak to your layout
-# Or: REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || cd "$SCRIPT_DIR/.." && pwd -P)"
-
 # Opt-in to forbidding raw sudo (comment out where you truly need sudo)
 export FORBID_DIRECT_SUDO=1
 
 # Source helpers
 # If your helpers live at scripts/helpers/privilege.sh from repo root:
 # shellcheck source=scripts/helpers/privilege.sh
-. "$REPO_ROOT/scripts/helpers/*.sh"
+. "$CLONE_DIR/scripts/helpers/*.sh"
 
 # Prefix commands with _sudo to auto-elevate if needed.
 # ---------------- Sudo End ------------------

@@ -40,9 +40,9 @@ echo "[postdeploy] placeholder – post-deploy tasks"
 make_executable() {
   info "Post-clone actions section (customise as needed)."
   if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
-  if [[ -x "$DOTFILEZ_ROOT/scripts/make-executable.sh" ]]; then
+  if [[ -x "$DOTS/scripts/make-executable.sh" ]]; then
     divider
-    warn "About to run: $DOTFILEZ_ROOT/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
+    warn "About to run: $DOTS/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
     _sudo $DOTS/scripts/make-executable.sh "$DOTS"
     _sudo $DOTS/scripts//make-executable.sh "$DOTS/bin/dotfilez"
 

@@ -104,68 +104,68 @@ install_ansible_galaxy_collections() {
   ensure_ansible
   ensure_proxmox_python_deps
 
-  # Create/refresh requirements.yml (idempotent)
-  local req="requirements.yml"
-  cat > "$req" <<'YAML'
----
-collections:
-  # Core & utils
-  - name: ansible.posix
-  - name: ansible.utils
-  - name: community.general
-  - name: community.crypto
+#   # Create/refresh requirements.yml (idempotent)
+#   local req="requirements.yml"
+#   cat > "$req" <<'YAML'
+# ---
+# collections:
+#   # Core & utils
+#   - name: ansible.posix
+#   - name: ansible.utils
+#   - name: community.general
+#   - name: community.crypto
 
-  # OS/ecosystem
-  - name: community.docker
-  - name: community.mysql
-  - name: community.postgresql
-  - name: community.grafana
-  - name: community.kubernetes
-  - name: community.libvirt
-  - name: community.hashi_vault
-  - name: community.mongodb
-  - name: community.windows
+#   # OS/ecosystem
+#   - name: community.docker
+#   - name: community.mysql
+#   - name: community.postgresql
+#   - name: community.grafana
+#   - name: community.kubernetes
+#   - name: community.libvirt
+#   - name: community.hashi_vault
+#   - name: community.mongodb
+#   - name: community.windows
 
-  if have_cmd ansible-galaxy; then
-    _sudo ansible-galaxy collection install -r "$req" --upgrade
-  else
-    die "ansible-galaxy not found in PATH; ensure \$HOME/.local/bin is in PATH (pipx shims)."
-  fi
+#   if have_cmd ansible-galaxy; then
+#     _sudo ansible-galaxy collection install -r "$req" --upgrade
+#   else
+#     die "ansible-galaxy not found in PATH; ensure \$HOME/.local/bin is in PATH (pipx shims)."
+#   fi
 
-  ok "Ansible and Galaxy collections installed."
-}
+#   ok "Ansible and Galaxy collections installed."
+# }
 
   # ---- main -----------------------------------------------------------------
   ensure_pipx
   ensure_ansible
   ensure_proxmox_python_deps
 
-  # Generate a requirements.yml next to where you run this (idempotent).
-  local req="requirements.yml"
-  cat > "$req" <<'YAML'
----
-collections:
-  # Core & utils
-  - name: ansible.posix
-  - name: ansible.utils
-  - name: community.general
-  - name: community.crypto
+#   # Generate a requirements.yml next to where you run this (idempotent).
+#   local req="requirements.yml"
+#   cat > "$req" <<'YAML'
+# ---
+# collections:
+#   # Core & utils
+#   - name: ansible.posix
+#   - name: ansible.utils
+#   - name: community.general
+#   - name: community.crypto
 
-  # OS/ecosystem
-  - name: community.docker
-  - name: community.mysql
-  - name: community.postgresql
-  - name: community.grafana
-  - name: community.kubernetes
-  - name: community.libvirt
-  - name: community.have_cmdhi_vault
-  - name: community.mongodb
-  - name: community.windows        # safe to include; only used on Windows hosts
+#   # OS/ecosystem
+#   - name: community.docker
+#   - name: community.mysql
+#   - name: community.postgresql
+#   - name: community.grafana
+#   - name: community.kubernetes
+#   - name: community.libvirt
+#   - name: community.have_cmdhi_vault
+#   - name: community.mongodb
+#   - name: community.windows        # safe to include; only used on Windows hosts
 
-  # Proxmox support:
-  # Most Proxmox modules live in community.general (e.g., proxmox_kvm).
-  # We install proxmoxer Python deps separately above.
-YAML
+#   # Proxmox support:
+#   # Most Proxmox modules live in community.general (e.g., proxmox_kvm).
+#   # We install proxmoxer Python deps separately above.
+# YAML
 
   # Install/update collections (idempotent)
   if have_cmd ansible-galaxy; then

@@ -1,2 +1,17 @@
 # galaxy/collection deps placeholder
-collections: []
+
+---
+collections:
+  - ansible.posix
+  - ansible.utils
+  - community.general
+  - community.crypto
+  - community.docker
+  - community.mysql
+  - community.postgresql
+  - community.grafana
+  - community.kubernetes
+  - community.libvirt
+  - community.hashi_vault
+  - community.mongodb
+  - community.windows

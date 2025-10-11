@@ -2,7 +2,15 @@
 
 
 # ---------------- Get sources Start ----------------
-DOTS="${DOTS:-$HOME/dotfilez}"
+# DOTS="${DOTS:-$HOME/dotfilez}"
+DOTS="$HOME/dotfilez"
+echo "[postdeploy] Using DOTS=$DOTS"
+if [[ ! -d "$DOTS" ]]; then
+  echo "[postdeploy] ERROR: DOTS directory $DOTS not found!" >&2
+  exit 1
+fi
+# shellcheck source=./helpers/common.sh
+.
 "$DOTS/scripts/helpers/common.sh"
 "$DOTS/scripts/helpers/pkg.sh"
 "$DOTS/scripts/helpers/identity.sh"

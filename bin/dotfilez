@@ -7,7 +7,7 @@ set -euo pipefail
 # ---------- config ----------
 # You can override these variables in your environment
 GITHUB_REPO="GertGerber/dotfilez"
-REPO_URL="${REPO_URL:-https://github.com/$(GITHUB_REPO).git}"
+REPO_URL="${REPO_URL:-https://github.com/$GITHUB_REPO.git}"
 CLONE_DIR="$HOME/dotfilez"
 BRANCH="${BRANCH:-main}"
 ALIAS_NAME="${ALIAS_NAME:-dotfilez}"

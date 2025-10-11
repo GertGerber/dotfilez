@@ -164,7 +164,8 @@ main_user_mode() {
   divider
   # Install packages
   info "Installing packages: ${PKG_WANTS[*]}..."
-  pkg_install "${PKG_WANTS[@]}"
+  # pkg_install "${PKG_WANTS[@]}"
+  _sudo nala install "${PKG_WANTS[@]}"
 
   divider
   # install Ansible + common Galaxy collections (incl. Proxmox)

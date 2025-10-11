@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
 
-# ---------------- Sudo Start ----------------
-# Opt-in to forbidding raw sudo (comment out where you truly need sudo)
-export FORBID_DIRECT_SUDO=1
 
-# Source helpers
-# If your helpers live at scripts/helpers/privilege.sh from repo root:
-# shellcheck source=scripts/helpers/privilege.sh
-. "$CLONE_DIR/scripts/helpers/*.sh"
-
-# Prefix commands with _sudo to auto-elevate if needed.
-# ---------------- Sudo End ------------------
+# ---------------- Variables Start ----------------
+# shellcheck source=../scripts/helpers/env.sh
+. "${DOTFILEZ_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/scripts/helpers/env.sh"
+# ---------------- Variables Start ------------------
 
 set -euo pipefail
 

@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Bootstrap script for dotfilez
+
+# ── config ────────────────────────────────────────────────────────────────────
+# ---------- config ----------
+# You can override these variables in your environment
+GITHUB_REPO="GertGerber/dotfilez"
+REPO_URL="${REPO_URL:-https://github.com/$(GITHUB_REPO).git}"
+CLONE_DIR="$HOME/dotfilez"
+BRANCH="${BRANCH:-main}"
+ALIAS_NAME="${ALIAS_NAME:-dotfilez}"
+ALIAS_LINE="alias ${ALIAS_NAME}='bash ${DEST_ROOT}/bin/bootstrap.sh'"
+# ----------------------------
+
+
 # ── Utilities & Styling ────────────────────────────────────────────────────────────────────
 # Colors and text styles for terminal output
 # Usage: fg RED; echo "This is red text"; echo "$RESET"
@@ -370,9 +384,7 @@ ensure_git_login() {
 clone_via_gh() {
   echo "Cloning or updating repo…"
 
-  # Setup repo details
-  GITHUB_REPO="GertGerber/dotfilez"
-  CLONE_DIR="$HOME/dotfilez"
+
 
   # Make sure target dir exists
   mkdir -p "$HOME/Github"   # no sudo in your HOME
@@ -395,6 +407,24 @@ clone_via_gh() {
 # By default, it looks for a create_user.sh script in the cloned repo and runs it if found.
 # Usage: post_clone_actions
 # Note: Skips interactive steps if no TTY is available.
+
+ensure_alias() {
+  local dest="$1"
+  local rcfile
+  # choose rcfile
+  if is_root; then
+    rcfile="/root/.bashrc"
+  else
+    rcfile="${HOME}/.bashrc"
+  fi
+  if grep -Fq "${ALIAS_LINE}" "${rcfile}" 2>/dev/null; then
+    log "Alias already present in ${rcfile}"
+  else
+    log "Adding alias to ${rcfile}: ${ALIAS_LINE}"
+    printf "\n# dotfilez alias\n%s\n" "${ALIAS_LINE}" >> "${rcfile}"
+  fi
+}
+
 post_clone_actions() {
   info "Post-clone actions section (customise as needed)."
   if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
@@ -517,6 +547,10 @@ main_user_mode() {
   divider
   # Clone or update the repo via gh
   clone_via_gh
+
+  divider
+  # Ensure alias is set in .bashrc
+  ensure_alias
 
   divider
   # Run any post-clone actions (customise as needed)

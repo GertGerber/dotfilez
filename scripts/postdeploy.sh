@@ -3,9 +3,9 @@
 
 # ---------------- Get sources Start ----------------
 DOTS="${DOTS:-$HOME/dotfilez}"
-. "$DOTS/scripts/helpers/common.sh"
-. "$DOTS/scripts/helpers/pkg.sh"
-. "$DOTS/scripts/helpers/identity.sh"
+"$DOTS/scripts/helpers/common.sh"
+"$DOTS/scripts/helpers/pkg.sh"
+"$DOTS/scripts/helpers/identity.sh"
 # ---------------- Get sources End ------------------ 
 
 set -euo pipefail
@@ -24,12 +24,12 @@ make_executable() {
   if [[ -x "$DOTFILEZ_ROOT/scripts/make-executable.sh" ]]; then
     divider
     warn "About to run: $DOTFILEZ_ROOT/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
-    _sudo $DOTFILEZ_ROOT/scripts/make-executable.sh "$DOTFILEZ_ROOT"
-    _sudo $DOTFILEZ_ROOT/scripts//make-executable.sh "$DOTFILEZ_ROOT/bin/dotfilez"
+    _sudo $DOTS/scripts/make-executable.sh "$DOTS"
+    _sudo $DOTS/scripts//make-executable.sh "$DOTS/bin/dotfilez"
 
     
   else
-    warn "No create_user.sh found at $DOTFILEZ_ROOT; skipping user creation step."
+    warn "No create_user.sh found at $DOTS; skipping user creation step."
   fi
 }
 

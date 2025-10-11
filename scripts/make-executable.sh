@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 
-# ---------------- Get sources Start ----------------
-DOTS="${DOTS:-$HOME/dotfilez}"
-. "$DOTS/scripts/helpers/common.sh"
-. "$DOTS/scripts/helpers/pkg.sh"
-. "$DOTS/scripts/helpers/identity.sh"
-# ---------------- Get sources End ------------------ 
-
-
 set -Eeuo pipefail
 IFS=$'\n\t'
 

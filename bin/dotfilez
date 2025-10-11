@@ -354,10 +354,12 @@ ensure_git_login() {
     echo "Configuring Git (if needed)…"
     # Set name if not already set
     if [[ -z "$(git config --global user.name || true)" ]]; then
+    read -rs "Your Git username (eg. UserName): " GIT_USER_NAME
     git config --global user.name "${GIT_USER_NAME:-Your Name}"
     fi
     # Set email if not already set
     if [[ -z "$(git config --global user.email || true)" ]]; then
+     read -rs "Your Git email (eg. email@domain.com): " GIT_USER_EMAIL
     git config --global user.email "${GIT_USER_EMAIL:-you@example.com}"
     fi
 }

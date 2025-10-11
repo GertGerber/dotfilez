@@ -21,7 +21,7 @@ make_executable() {
   if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
   if [[ -x "$DOTFILEZ_ROOT/scripts/make-executable.sh" ]]; then
     divider
-    warn "About to run: $DOTFILEZ_ROOT/create_user.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true; bash "$DOTFILEZ_ROOT/create_user.sh" || warn "create_user.sh exited with non-zero status."
+    warn "About to run: $DOTFILEZ_ROOT/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
     _sudo $DOTFILEZ_ROOT/scripts/make-executable.sh "$CLONE_DIR"
     _sudo $DOTFILEZ_ROOT/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
 

@@ -11,7 +11,7 @@ source "$DOTS/scripts/helpers/common.sh"
 # shellcheck disable=SC1091
 source "$DOTS/scripts/helpers/pkg.sh"
 # shellcheck disable=SC1091
-source "$DOTS/scripts/helpers/error_hadling.sh
+source "$DOTS/scripts/helpers/error_hadling.sh"
 # ---------------- Get sources End ------------------
 
 set -euo pipefail

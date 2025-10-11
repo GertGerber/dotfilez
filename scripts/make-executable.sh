@@ -99,7 +99,7 @@ make_exec() {
     ok "Marked ${#files[@]} shell script(s) executable."
   elif [[ -f "$target" ]]; then
     info "File selected: $target"
-    sudo chmod +x -- "$target"
+    _sudo chmod +x -- "$target"
     [[ "$target" == *.sh ]] || warn "File does not end with .sh; made it executable anyway."
     ok "Marked 1 file executable."
   else

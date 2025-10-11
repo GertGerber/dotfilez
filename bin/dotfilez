@@ -399,7 +399,7 @@ post_clone_actions() {
   if [[ -x "$CLONE_DIR/scripts/make-executable.sh" ]]; then
     divider
     warn "About to run: Post Clone Tasks)"; read -r _ || true; # Pause for user to read
-    _sudo $HOMRE/dotfilez/scripts/postdeploy.sh
+    _sudo $HOME/dotfilez/scripts/postdeploy.sh
 
     
   else

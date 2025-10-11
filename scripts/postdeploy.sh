@@ -23,7 +23,6 @@ fi
 # shellcheck source=./helpers/common.sh
 "$DOTS/scripts/helpers/common.sh"
 "$DOTS/scripts/helpers/pkg.sh"
-"$DOTS/scripts/helpers/identity.sh"
 # ---------------- Get sources End ------------------ 
 
 set -euo pipefail

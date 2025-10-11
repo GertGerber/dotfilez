@@ -19,15 +19,15 @@ echo "[postdeploy] placeholder – post-deploy tasks"
 make_executable() {
   info "Post-clone actions section (customise as needed)."
   if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
-  if [[ -x "$CLONE_DIR/scripts/make-executable.sh" ]]; then
+  if [[ -x "$DOTFILEZ_ROOT/scripts/make-executable.sh" ]]; then
     divider
-    warn "About to run: $CLONE_DIR/create_user.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true; bash "$CLONE_DIR/create_user.sh" || warn "create_user.sh exited with non-zero status."
-    _sudo $CLONE_DIR/scripts/make-executable.sh "$CLONE_DIR"
-    _sudo $CLONE_DIR/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
+    warn "About to run: $DOTFILEZ_ROOT/create_user.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true; bash "$DOTFILEZ_ROOT/create_user.sh" || warn "create_user.sh exited with non-zero status."
+    _sudo $DOTFILEZ_ROOT/scripts/make-executable.sh "$CLONE_DIR"
+    _sudo $DOTFILEZ_ROOT/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
 
     
   else
-    warn "No create_user.sh found at $CLONE_DIR; skipping user creation step."
+    warn "No create_user.sh found at $DOTFILEZ_ROOT; skipping user creation step."
   fi
 }
 

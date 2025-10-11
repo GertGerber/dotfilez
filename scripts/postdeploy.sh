@@ -46,19 +46,17 @@ make_executable() {
 install_ansible_galaxy_collections() {
   set -euo pipefail
 
-  # ---- helpers ---------------------------------------------------------------
-    info "Installing Ansible and common Galaxy collections (incl. Proxmox support)..."
-    info
-    ensure_pipx() {
-    info "Ensuring pipx is installed..."
+  info "Installing Ansible and common Galaxy collections (incl. Proxmox support)…"
+
+  ensure_pipx() {
+    info "Ensuring pipx is installed…"
     if ! have_cmd pipx; then
-      if have_cmd python3 -o -x /usr/bin/python3; then
+      if have_cmd python3 || [[ -x /usr/bin/python3 ]]; then
         pkg_install python3-pip || true
         _sudo python3 -m pip install --user --upgrade pipx
-        # Ensure ~/.local/bin on PATH for current session
         export PATH="$HOME/.local/bin:$PATH"
       else
-        info "Python3 not found; attempting to install python3 + pip first..."
+        info "python3 not found; installing python3 + pip…"
         pkg_install python3 python3-pip
         _sudo python3 -m pip install --user --upgrade pipx
         export PATH="$HOME/.local/bin:$PATH"
@@ -67,46 +65,75 @@ install_ansible_galaxy_collections() {
   }
 
   ensure_ansible() {
+    info "Ensuring Ansible is installed…"
     if have_cmd ansible-galaxy && have_cmd ansible; then
       return
     fi
     if have_cmd pipx; then
-      info "Installing Ansible via pipx..."
-      # Install ansible-core for a minimal install:
+      info "Installing Ansible via pipx…"
       _sudo pipx install --include-deps ansible-core || true
-      # On some distros ansible CLI meta-package is handy:
       _sudo pipx install ansible || true
     else
-      # OS package fallback
-      info "pipx not found; falling back to OS package manager for Ansible installation."
+      info "pipx not found; using OS package manager for Ansible…"
       if have_cmd apt-get; then
         pkg_install software-properties-common || true
         pkg_install ansible
       else
-        info "Attempting to install ansible via OS package manager..."
         pkg_install ansible || true
       fi
     fi
   }
 
-  
   ensure_proxmox_python_deps() {
-    # Proxmox modules commonly need proxmoxer + requests
-    info "Ensuring Proxmox Python dependencies (proxmoxer, requests)..."
+    info "Ensuring Proxmox Python deps (proxmoxer, requests)…"
     if have_cmd pipx; then
-      # Install into the ansible venv if present, else into a dedicated one
       if pipx list | grep -qE 'package +ansible(\b|-core\b)'; then
         _sudo pipx runpip ansible install --upgrade proxmoxer requests
       elif pipx list | grep -q 'ansible-core'; then
         _sudo pipx runpip ansible-core install --upgrade proxmoxer requests
       else
         _sudo pipx install proxmoxer || true
-        p_sudo ipx inject proxmoxer requests || true
+        _sudo pipx inject proxmoxer requests || true
       fi
     else
       _sudo python3 -m pip install --user --upgrade proxmoxer requests
     fi
   }
+
+  ensure_pipx
+  ensure_ansible
+  ensure_proxmox_python_deps
+
+  # Create/refresh requirements.yml (idempotent)
+  local req="requirements.yml"
+  cat > "$req" <<'YAML'
+---
+collections:
+  # Core & utils
+  - name: ansible.posix
+  - name: ansible.utils
+  - name: community.general
+  - name: community.crypto
+
+  # OS/ecosystem
+  - name: community.docker
+  - name: community.mysql
+  - name: community.postgresql
+  - name: community.grafana
+  - name: community.kubernetes
+  - name: community.libvirt
+  - name: community.hashi_vault
+  - name: community.mongodb
+  - name: community.windows
+
+  if have_cmd ansible-galaxy; then
+    _sudo ansible-galaxy collection install -r "$req" --upgrade
+  else
+    die "ansible-galaxy not found in PATH; ensure \$HOME/.local/bin is in PATH (pipx shims)."
+  fi
+
+  ok "Ansible and Galaxy collections installed."
+}
 
   # ---- main -----------------------------------------------------------------
   ensure_pipx

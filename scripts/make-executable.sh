@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+# ---------------- Get sources Start ----------------
+# Resolve project root if DOTS isn't set
+DOTS="${DOTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+# Load helper libraries (logging, divider, have_cmd, _sudo, etc.)
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/common.sh"
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/pkg.sh"
+# ---------------- Get sources End ------------------
+
 set -Eeuo pipefail
 IFS=$'\n\t'
 
@@ -74,9 +85,9 @@ pick_path() {
 # --------------- Core logic ---------------
 make_exec() {
   local target="$1"
-  info "Target path: $target"
+  echo "Target path: $target"
   if [[ -d "$target" ]]; then
-    info "111 Directory selected for make executable: $target"
+    info "Directory selected for make executable: $target"
     sudo mapfile -d '' files < <(sudo find "$target" -type f -name '*.sh' -print0)
     if (( ${#files[@]} == 0 )); then
       warn "No *.sh files found under: $target"

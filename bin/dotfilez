@@ -398,13 +398,12 @@ post_clone_actions() {
   if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
   if [[ -x "$CLONE_DIR/scripts/make-executable.sh" ]]; then
     divider
-    warn "About to run: $CLONE_DIR/create_user.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true; bash "$CLONE_DIR/create_user.sh" || warn "create_user.sh exited with non-zero status."
-    _sudo $CLONE_DIR/scripts/make-executable.sh "$CLONE_DIR"
-    _sudo $CLONE_DIR/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
+    warn "About to run: Post Clone Tasks)"; read -r _ || true; # Pause for user to read
+    _sudo $HOMRE/dotfilez/scripts/postdeploy.sh
 
     
   else
-    warn "No create_user.sh found at $CLONE_DIR; skipping user creation step."
+    warn "No Post-Clone tasks to run; skipping running any tasks."
   fi
 }
 

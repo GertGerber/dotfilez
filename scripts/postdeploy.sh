@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
 
+# ── Load project helpers ─────────────────────────────────────────────
 # ---------------- Get sources Start ----------------
 # Resolve project root if DOTS isn't set
-DOTS="${DOTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+DOTS="${DOTS:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 # Load helper libraries (logging, divider, have_cmd, _sudo, etc.)
 # shellcheck disable=SC1091
@@ -14,8 +16,6 @@ source "$DOTS/scripts/helpers/pkg.sh"
 source "$DOTS/scripts/helpers/error_hadling.sh"
 export DOTS_LOG="$HOME/.local/share/dotfilez/postdeploy.log"
 # ---------------- Get sources End ------------------
-
-set -euo pipefail
 
 echo "[postdeploy] placeholder – post-deploy tasks"
 

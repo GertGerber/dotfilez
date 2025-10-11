@@ -10,7 +10,6 @@ if [[ ! -d "$DOTS" ]]; then
   exit 1
 fi
 # shellcheck source=./helpers/common.sh
-.
 "$DOTS/scripts/helpers/common.sh"
 "$DOTS/scripts/helpers/pkg.sh"
 "$DOTS/scripts/helpers/identity.sh"

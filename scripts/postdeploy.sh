@@ -44,6 +44,8 @@ make_executable() {
 # Installs Ansible + common Galaxy collections (incl. Proxmox).
 # Uses _sudo helper from dotfilez/scripts/helpers/privilege.sh
 install_ansible_galaxy_collections() {
+  REQUIREMENT="$DOTS/ansible/requirements.yml"
+  [[ -f "$REQUIREMENT" ]] || { warn "No Ansible requirements file found at $REQUIREMENT; skipping Ansible installation."; return 0; }
   set -euo pipefail
 
   info "Installing Ansible and common Galaxy collections (incl. Proxmox support)…"
@@ -104,72 +106,10 @@ install_ansible_galaxy_collections() {
   ensure_ansible
   ensure_proxmox_python_deps
 
-#   # Create/refresh requirements.yml (idempotent)
-#   local req="requirements.yml"
-#   cat > "$req" <<'YAML'
-# ---
-# collections:
-#   # Core & utils
-#   - name: ansible.posix
-#   - name: ansible.utils
-#   - name: community.general
-#   - name: community.crypto
-
-#   # OS/ecosystem
-#   - name: community.docker
-#   - name: community.mysql
-#   - name: community.postgresql
-#   - name: community.grafana
-#   - name: community.kubernetes
-#   - name: community.libvirt
-#   - name: community.hashi_vault
-#   - name: community.mongodb
-#   - name: community.windows
-
-#   if have_cmd ansible-galaxy; then
-#     _sudo ansible-galaxy collection install -r "$req" --upgrade
-#   else
-#     die "ansible-galaxy not found in PATH; ensure \$HOME/.local/bin is in PATH (pipx shims)."
-#   fi
-
-#   ok "Ansible and Galaxy collections installed."
-# }
-
-  # ---- main -----------------------------------------------------------------
-  ensure_pipx
-  ensure_ansible
-  ensure_proxmox_python_deps
-
-#   # Generate a requirements.yml next to where you run this (idempotent).
-#   local req="requirements.yml"
-#   cat > "$req" <<'YAML'
-# ---
-# collections:
-#   # Core & utils
-#   - name: ansible.posix
-#   - name: ansible.utils
-#   - name: community.general
-#   - name: community.crypto
-
-#   # OS/ecosystem
-#   - name: community.docker
-#   - name: community.mysql
-#   - name: community.postgresql
-#   - name: community.grafana
-#   - name: community.kubernetes
-#   - name: community.libvirt
-#   - name: community.have_cmdhi_vault
-#   - name: community.mongodb
-#   - name: community.windows        # safe to include; only used on Windows hosts
-
-#   # Proxmox support:
-#   # Most Proxmox modules live in community.general (e.g., proxmox_kvm).
-#   # We install proxmoxer Python deps separately above.
-# YAML
 
   # Install/update collections (idempotent)
   if have_cmd ansible-galaxy; then
-    _sudo ansible-galaxy collection install -r "$req" --upgrade
+    _sudo ansible-galaxy collection install -r "$REQUIREMENT" --upgrade
   else
     echo "ansible-galaxy not found in PATH; ensure your shell PATH includes pipx shims (e.g., \$HOME/.local/bin)." >&2
     return 1

@@ -1,29 +1,31 @@
 #!/usr/bin/env bash
 
 
+# # ---------------- Get sources Start ----------------
+# # DOTS="${DOTS:-$HOME/dotfilez}"
+# if [ -n "$SUDO_USER" ]; then
+#   # Safest: query the account database
+#   user_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+#   # or quick-and-handy:
+#   # user_home="$(eval echo "~$SUDO_USER")"
+# else
+#   user_home="$HOME"
+# fi
+# echo "$user_home"
+
+
+# DOTS="$user_home/dotfilez"
+# echo "[postdeploy] Using DOTS=$DOTS"
 # ---------------- Get sources Start ----------------
-# DOTS="${DOTS:-$HOME/dotfilez}"
-if [ -n "$SUDO_USER" ]; then
-  # Safest: query the account database
-  user_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
-  # or quick-and-handy:
-  # user_home="$(eval echo "~$SUDO_USER")"
-else
-  user_home="$HOME"
-fi
-echo "$user_home"
+# Resolve project root if DOTS isn't set
+DOTS="${DOTS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
-
-DOTS="$user_home/dotfilez"
-echo "[postdeploy] Using DOTS=$DOTS"
-if [[ ! -d "$DOTS" ]]; then
-  echo "[postdeploy] ERROR: DOTS directory $DOTS not found!" >&2
-  exit 1
-fi
-# shellcheck source=./helpers/common.sh
-source="$DOTS/scripts/helpers/common.sh"
-source="$DOTS/scripts/helpers/pkg.sh"
-# ---------------- Get sources End ------------------ 
+# Load helper libraries (logging, divider, have_cmd, _sudo, etc.)
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/common.sh"
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/pkg.sh"
+# ---------------- Get sources End ------------------
 
 set -euo pipefail
 

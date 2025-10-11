@@ -44,7 +44,7 @@ make_executable() {
     divider
     warn "About to run: $DOTS/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
     _sudo $DOTS/scripts/make-executable.sh "$DOTS"
-    _sudo $DOTS/scripts//make-executable.sh "$DOTS/bin/dotfilez"
+    _sudo $DOTS/scripts/make-executable.sh "$DOTS/bin/dotfilez"
 
     
   else

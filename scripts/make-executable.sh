@@ -15,8 +15,8 @@ pick_path() {
   if (( $# > 0 )) && [[ -n "${1:-}" ]]; then
     local p="$1"
     [[ -e "$p" ]] || die "Path not found: $p"
-    _sudo command -v realpath >/dev/null 2>&1 \
-      && _sudo realpath -m -- "$p" \
+    sudo command -v realpath >/dev/null 2>&1 \
+      && sudo realpath -m -- "$p" \
       || printf '%s' "$p"
     return 0
   fi
@@ -85,7 +85,7 @@ make_exec() {
     ok "Marked ${#files[@]} shell script(s) executable."
   elif [[ -f "$target" ]]; then
     info "File selected: $target"
-    _sudo chmod +x -- "$target"
+    sudo chmod +x -- "$target"
     [[ "$target" == *.sh ]] || warn "File does not end with .sh; made it executable anyway."
     ok "Marked 1 file executable."
   else

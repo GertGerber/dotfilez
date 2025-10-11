@@ -22,8 +22,8 @@ make_executable() {
   if [[ -x "$DOTFILEZ_ROOT/scripts/make-executable.sh" ]]; then
     divider
     warn "About to run: $DOTFILEZ_ROOT/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
-    _sudo $DOTFILEZ_ROOT/scripts/make-executable.sh "$CLONE_DIR"
-    _sudo $DOTFILEZ_ROOT/scripts//make-executable.sh "$CLONE_DIR/bin/dotfilez"
+    _sudo $DOTFILEZ_ROOT/scripts/make-executable.sh "$DOTFILEZ_ROOT"
+    _sudo $DOTFILEZ_ROOT/scripts//make-executable.sh "$DOTFILEZ_ROOT/bin/dotfilez"
 
     
   else

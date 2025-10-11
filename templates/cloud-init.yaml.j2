@@ -1,0 +1,5 @@
+#cloud-config
+users:
+  - name: {{ username | default("devops") }}
+    groups: [ sudo ]
+    shell: /bin/bash

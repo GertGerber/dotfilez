@@ -12,7 +12,7 @@ export FORBID_DIRECT_SUDO=1
 # Source helpers
 # If your helpers live at scripts/helpers/privilege.sh from repo root:
 # shellcheck source=scripts/helpers/privilege.sh
-. "$REPO_ROOT/scripts/helpers/privilege.sh"
+. "$REPO_ROOT/scripts/helpers/*.sh"
 
 # Prefix commands with _sudo to auto-elevate if needed.
 # ---------------- Sudo End ------------------

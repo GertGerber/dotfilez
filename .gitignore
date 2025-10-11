@@ -1,0 +1,18 @@
+/secrets/*
+!/secrets/.gitkeep
+
+# build & tool outputs
+**/.terraform/*
+**/.terragrunt-cache/*
+**/.pytest_cache/*
+**/__pycache__/
+**/.molecule/
+packer/output/
+*.zip
+*.log
+.env
+.venv/
+
+# OS junk
+.DS_Store
+Thumbs.db

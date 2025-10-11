@@ -58,3 +58,14 @@ validate_username() { local u="$1"; [[ "$u" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; }
 # Check if a command exists
 # Usage: if have_cmd git; then echo "Git is installed"; fi  
 have_cmd()   { command -v "$1" >/dev/null 2>&1; }
+
+
+# ── Divider ─────────────────────────────────────────────
+# Divider line for better readability in logs
+# Usage: divider
+#   Outputs a line of dashes to separate sections in the log.
+#   Example:
+#   divider
+#   echo "Starting section..."
+#   divider # Outputs: ----------------------------------------
+divider() { echo "----------------------------------------"; }

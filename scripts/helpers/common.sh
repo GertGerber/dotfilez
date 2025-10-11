@@ -68,4 +68,4 @@ have_cmd()   { command -v "$1" >/dev/null 2>&1; }
 #   divider
 #   echo "Starting section..."
 #   divider # Outputs: ----------------------------------------
-divider() { echo "----------------------------------------"; }
+divider() { echo "─────────────────────────────────────────────"; }

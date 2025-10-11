@@ -11,7 +11,7 @@ REPO_URL="${REPO_URL:-https://github.com/GertGerber/dotfilez.git}"
 CLONE_DIR="$HOME/dotfilez"
 BRANCH="${BRANCH:-main}"
 ALIAS_NAME="${ALIAS_NAME:-dotfilez}"
-ALIAS_LINE="alias ${ALIAS_NAME}='bash ${DEST_ROOT}/bin/bootstrap.sh'"
+ALIAS_LINE="alias ${ALIAS_NAME}='bash ${CLONE_DIR}/bin/bootstrap.sh'"
 # ----------------------------
 
 

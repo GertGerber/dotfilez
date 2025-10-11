@@ -75,7 +75,7 @@ pick_path() {
 make_exec() {
   local target="$1"
   if [[ -d "$target" ]]; then
-    info "Directory selected: $target"
+    info "Directory selected for make executable: $target"
     mapfile -d '' files < <(find "$target" -type f -name '*.sh' -print0)
     if (( ${#files[@]} == 0 )); then
       warn "No *.sh files found under: $target"

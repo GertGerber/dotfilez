@@ -1,0 +1,28 @@
+---
+# Name of the Proxmox API user and role we'll manage
+pve_api_user: "ansible@pve"
+pve_api_role: "automate-provisioner"
+pve_api_token_name: "ansible-token"
+# Privileges required for LXC/VM lifecycle and template/ISO download
+pve_api_role_privs:
+  - VM.Audit
+  - VM.Allocate
+  - VM.Config.Disk
+  - VM.Config.CPU
+  - VM.Config.Memory
+  - VM.Config.HWType
+  - VM.Config.Options
+  - VM.Config.Network
+  - VM.Config.Cloudinit
+  - VM.Migrate
+  - VM.PowerMgmt
+  - SDN.Audit
+  - SDN.Allocate
+  - Sys.Audit
+  - Sys.Modify
+  - Datastore.Audit
+  - Datastore.Allocate
+  - Datastore.AllocateSpace
+  - Datastore.AllocateTemplate
+# Store secrets on the controller in ./secrets/proxmox_api.yml
+local_secrets_file: "{{ playbook_dir }}/../secrets/proxmox_api.yml"

@@ -1,0 +1,11 @@
+---
+# 02_proxmox_api_bootstrap.yml
+# Creates a Proxmox role, user, and API token on the Proxmox host.
+# If the local secret variables are empty, the role will recreate the token to capture values.
+- name: Proxmox API bootstrap
+  hosts: proxmox
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: proxmox_api_bootstrap

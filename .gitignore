@@ -16,3 +16,15 @@ packer/output/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Ansible local secrets
+secrets/
+inventories/**/group_vars/*vault*.yml
+inventories/**/host_vars/*vault*.yml
+*.vault.yml
+*.retry
+*.bak
+*.swp
+*.swo
+__pycache__/
+.cache/

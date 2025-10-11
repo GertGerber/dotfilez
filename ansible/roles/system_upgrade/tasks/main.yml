@@ -1,0 +1,31 @@
+---
+- name: Update & upgrade on Debian/Ubuntu
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+  when: ansible_os_family == "Debian"
+
+- name: Update & upgrade on RHEL/CentOS/Fedora
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    update_only: false
+  when: ansible_os_family == "RedHat"
+
+- name: Update & upgrade on Arch
+  community.general.pacman:
+    update_cache: true
+    upgrade: true
+  when: ansible_os_family == "Archlinux"
+
+- name: Update & upgrade on Alpine
+  community.general.apk:
+    update_cache: true
+    upgrade: true
+  when: ansible_os_family == "Alpine"
+
+- name: Reboot if requested
+  ansible.builtin.reboot:
+    msg: "Reboot initiated by Ansible after system upgrade"
+    reboot_timeout: 1800
+  when: reboot_after_upgrade | bool

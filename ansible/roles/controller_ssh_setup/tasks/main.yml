@@ -1,0 +1,47 @@
+---
+# Ensure SSH packages on controller (delegated to localhost)
+- name: Ensure SSH packages on controller
+  ansible.builtin.package:
+    name: "{{ ssh_install_packages_controller }}"
+    state: present
+  delegate_to: localhost
+  become: true
+
+# Generate SSH key on controller if missing (ed25519 by default)
+- name: Generate controller SSH keypair if missing
+  community.crypto.openssh_keypair:
+    path: "{{ ssh_key_path }}"
+    type: "{{ ssh_key_type }}"
+    comment: "{{ ssh_key_comment }}"
+    size: "{{ ssh_key_bits }}"
+    state: present
+    mode: '0600'
+  delegate_to: localhost
+  become: false
+
+# Ensure SSH server on targets
+- name: Ensure SSH server installed on targets
+  ansible.builtin.package:
+    name: "{{ ssh_target_server_packages }}"
+    state: present
+
+- name: Ensure sshd is enabled and running (if service is present)
+  ansible.builtin.service:
+    name: "{{ (ansible_os_family == 'Debian') | ternary('ssh', 'sshd') }}"
+    state: started
+    enabled: true
+  ignore_errors: true
+
+# Copy controller public key to targets
+- name: Read controller public key
+  ansible.builtin.slurp:
+    src: "{{ ssh_key_path }}.pub"
+  register: pubkey_content
+  delegate_to: localhost
+  become: false
+
+- name: Authorize controller public key for remote user
+  ansible.posix.authorized_key:
+    user: "{{ ansible_user | default('root') }}"
+    key: "{{ pubkey_content.content | b64decode }}"
+    state: "{{ ssh_authorized_key_state }}"

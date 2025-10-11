@@ -1,0 +1,10 @@
+---
+# 03_upgrade_non_proxmox.yml
+# Upgrades all non-Proxmox hosts, including the controller (localhost) if included in inventory.
+- name: Upgrade all controllers and targets excluding Proxmox
+  hosts: "all:!proxmox"
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: system_upgrade

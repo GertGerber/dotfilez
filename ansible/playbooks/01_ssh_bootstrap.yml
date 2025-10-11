@@ -1,0 +1,11 @@
+---
+# 01_ssh_bootstrap.yml
+# Installs SSH on controller (if needed), generates an ed25519 key if missing,
+# and deploys the public key to target hosts.
+- name: SSH bootstrap on controller and targets
+  hosts: all
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: controller_ssh_setup

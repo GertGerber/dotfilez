@@ -1,0 +1,9 @@
+---
+galaxy_info:
+  author: dotfilez
+  description: Create Proxmox role, user, and API token with privileges to manage VMs/LXCs and templates/ISOs. Persist token locally.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+dependencies: []

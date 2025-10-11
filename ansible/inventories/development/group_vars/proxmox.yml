@@ -1,0 +1,5 @@
+# Proxmox API connection defaults
+proxmox_api_host: "{{ hostvars[inventory_hostname].ansible_host | default(inventory_hostname) }}"
+proxmox_api_user: "{{ lookup('file', playbook_dir + '/../secrets/proxmox_api.yml') | from_yaml | default({}) | dict2items | selectattr('key', 'equalto', 'proxmox_api_user') | map(attribute='value') | first | default(omit) }}"
+proxmox_api_token_name: "{{ lookup('file', playbook_dir + '/../secrets/proxmox_api.yml') | from_yaml | default({}) | dict2items | selectattr('key', 'equalto', 'proxmox_api_token_name') | map(attribute='value') | first | default(omit) }}"
+proxmox_api_token_value: "{{ lookup('file', playbook_dir + '/../secrets/proxmox_api.yml') | from_yaml | default({}) | dict2items | selectattr('key', 'equalto', 'proxmox_api_token_value') | map(attribute='value') | first | default(omit) }}"

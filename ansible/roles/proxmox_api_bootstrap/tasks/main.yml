@@ -1,0 +1,124 @@
+---
+# This role executes on the Proxmox host over SSH.
+# It uses pveum (user manager) and pvesh to create role, user, and token.
+# The token secret is only shown on creation; we persist it locally in a secrets file and .gitignore it.
+
+- name: Ensure pveum is available on Proxmox
+  ansible.builtin.command: which pveum
+  changed_when: false
+
+- name: Build privilege string
+  ansible.builtin.set_fact:
+    _pve_priv_string: "{{ pve_api_role_privs | join(',') }}"
+
+- name: Create role if not exists
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ! pveum role list | awk '{print $1}' | grep -q "^{{ pve_api_role }}$"; then
+      pveum role add {{ pve_api_role }} -privs "{{ _pve_priv_string }}"
+      echo "created"
+    else
+      echo "exists"
+    fi
+  register: role_result
+  changed_when: "'created' in role_result.stdout"
+
+- name: Create user if not exists
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ! pveum user list | awk '{print $1}' | grep -q "^{{ pve_api_user }}$"; then
+      pveum user add {{ pve_api_user }} --enable 1
+      echo "created"
+    else
+      echo "exists"
+    fi
+  register: user_result
+  changed_when: "'created' in user_result.stdout"
+
+- name: Attach role on / (cluster-wide) if not already
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ! pveum acl list | awk '$1=="/" {print $0}' | grep -q "{{ pve_api_user }}.*{{ pve_api_role }}"; then
+      pveum aclmod / -user {{ pve_api_user }} -role {{ pve_api_role }}
+      echo "attached"
+    else
+      echo "exists"
+    fi
+  register: acl_result
+  changed_when: "'attached' in acl_result.stdout"
+
+# Load existing local secrets (if any)
+- name: Read existing local secrets (controller)
+  ansible.builtin.slurp:
+    src: "{{ local_secrets_file }}"
+  register: _local_secrets_raw
+  delegate_to: localhost
+  become: false
+  ignore_errors: true
+
+- name: Parse existing local secrets
+  ansible.builtin.set_fact:
+    _local_secrets: "{{ (_local_secrets_raw.content | default('') | b64decode) | default('') | from_yaml | default({}) }}"
+  delegate_to: localhost
+  become: false
+
+# Decide whether we must (re)create token
+- name: Determine if proxmox_api_user/token vars exist
+  ansible.builtin.set_fact:
+    _need_token: "{{ (_local_secrets.get('proxmox_api_user','') | length == 0) or (_local_secrets.get('proxmox_api_token_name','') | length == 0) or (_local_secrets.get('proxmox_api_token_value','') | length == 0) }}"
+
+- name: Remove existing token when we need new one (best effort)
+  when: _need_token
+  ansible.builtin.shell: |
+    set -euo pipefail
+    # delete if present (ignore errors)
+    pveum user token remove {{ pve_api_user }} {{ pve_api_token_name }} || true
+    echo "ok"
+  register: del_token_result
+  changed_when: false
+
+- name: Create fresh API token and capture secret
+  when: _need_token
+  ansible.builtin.shell: |
+    set -euo pipefail
+    # Create token with privilege separation disabled to inherit user ACLs
+    OUT="$(pveum user token add {{ pve_api_user }} {{ pve_api_token_name }} --privsep 0)"
+    echo "$OUT"
+  register: token_create_raw
+  changed_when: true
+
+- name: Parse token creation output
+  when: _need_token
+  ansible.builtin.set_fact:
+    _token_value: "{{ token_create_raw.stdout_lines | select('match','^secret:') | map('regex_replace','^secret:\s*','') | list | first | default('') }}"
+    _token_name: "{{ pve_api_token_name }}"
+    _token_user: "{{ pve_api_user }}"
+
+- name: Ensure secrets directory exists locally
+  when: _need_token
+  ansible.builtin.file:
+    path: "{{ local_secrets_file | dirname }}"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  become: false
+
+- name: Write local secrets file (controller)
+  when: _need_token
+  ansible.builtin.copy:
+    dest: "{{ local_secrets_file }}"
+    content: |
+      proxmox_api_user: "{{ _token_user }}"
+      proxmox_api_token_name: "{{ _token_name }}"
+      proxmox_api_token_value: "{{ _token_value }}"
+    mode: '0600'
+  delegate_to: localhost
+  become: false
+
+- name: Display summary
+  ansible.builtin.debug:
+    msg:
+      - "User: {{ pve_api_user }}"
+      - "Role: {{ pve_api_role }}"
+      - "Token name: {{ pve_api_token_name }}"
+      - "Token value stored locally at {{ local_secrets_file }} (git-ignored)"

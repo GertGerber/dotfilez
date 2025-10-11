@@ -1,0 +1,8 @@
+---
+ssh_key_type: ed25519
+ssh_key_bits: 256
+ssh_key_comment: "ansible@{{ ansible_hostname }}"
+ssh_key_path: "{{ lookup('env','HOME') + '/.ssh/id_' + ssh_key_type }}"
+ssh_install_packages_controller: "{{ (ansible_os_family == 'Debian') | ternary(['openssh-client','openssh-server'], (ansible_os_family == 'RedHat') | ternary(['openssh-clients','openssh-server'], ['openssh'])) }}"
+ssh_target_server_packages: "{{ (ansible_os_family == 'Debian') | ternary(['openssh-server'], (ansible_os_family == 'RedHat') | ternary(['openssh-server'], ['openssh'])) }}"
+ssh_authorized_key_state: present

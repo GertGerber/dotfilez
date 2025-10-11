@@ -3,7 +3,18 @@
 
 # ---------------- Get sources Start ----------------
 # DOTS="${DOTS:-$HOME/dotfilez}"
-DOTS="$HOME/dotfilez"
+if [ -n "$SUDO_USER" ]; then
+  # Safest: query the account database
+  user_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+  # or quick-and-handy:
+  # user_home="$(eval echo "~$SUDO_USER")"
+else
+  user_home="$HOME"
+fi
+echo "$user_home"
+
+
+DOTS="$user_home/dotfilez"
 echo "[postdeploy] Using DOTS=$DOTS"
 if [[ ! -d "$DOTS" ]]; then
   echo "[postdeploy] ERROR: DOTS directory $DOTS not found!" >&2

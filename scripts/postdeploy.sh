@@ -21,10 +21,8 @@ TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6 2>/dev/null || echo "$
 
 LOG_DIR="${TARGET_HOME}/.local/share/dotfilez"
 mkdir -p "$LOG_DIR"
-export DOTS_LOG=""${TARGET_HOME}/.local/share/dotfilez/postdeploy.log"
+export DOTS_LOG="${TARGET_HOME}/.local/share/dotfilez/postdeploy.log"
 # ---------------- Get sources End ------------------
-
-echo "[postdeploy] placeholder – post-deploy tasks"
 
 # ── Make Executable ────────────────────────────────────────────────────────────────────
 

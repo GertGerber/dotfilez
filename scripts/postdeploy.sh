@@ -134,6 +134,7 @@ main_user_mode() {
   pkg_install "${PKG_WANTS[@]}"
 
   divider
+  info "Installing Ansible + common Galaxy collections (incl. Proxmox support)..."
   # install Ansible + common Galaxy collections (incl. Proxmox)
   install_ansible_galaxy_collections
 
@@ -141,7 +142,7 @@ main_user_mode() {
   # Run Ansible playbook to configure user environment
   info "Running Ansible playbook to configure user environment..."
   # Use _sudo to ensure any privilege escalation within ansible.sh works correctly
-  _sudo $HOME/dotfilez/scripts/ansible.sh
+  $HOME/dotfilez/scripts/ansible.sh
   
 }
 

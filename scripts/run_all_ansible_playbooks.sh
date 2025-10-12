@@ -1,99 +1,79 @@
-# ###############################################################################
-# File: run_all_ansible_playbooks.sh
-# Location: dotfilez/scripts/
-# Purpose: Execute all enabled Ansible playbooks in order, with explicit environment selection.
-# Usage:
-#   ./scripts/run_all_ansible_playbooks.sh [--environment dev|prod] [--ansible-config ansible/ansible.cfg]
-#
-# Notes:
-# - By default, uses environment 'prod' unless overridden with --environment or ENVIRONMENT.
-# - Sets ANSIBLE_CONFIG if --ansible-config is provided (recommended).
-# - Looks for playbooks under ansible/playbooks/enable/*.yml and runs them in sort order.
-# - A sibling directory 'ansible/playbooks/disable' is ignored.
-#
-# Examples:
-#   ../scripts/run_all_ansible_playbooks.sh --environment dev --ansible-config ansible/ansible.cfg
-#   ENVIRONMENT=dev ./scripts/lib/run-all-playbooks.sh
-#
-# This script aligns comments and behaviour; what you see here is what it does.
-# ###############################################################################
-
-
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENVIRONMENT_DEFAULT="${ENVIRONMENT:-prod}"
-ENVIRONMENT_VALUE="$ENVIRONMENT_DEFAULT"
-ANSIBLE_CONFIG_PATH="${ANSIBLE_CONFIG:-}"
+# ── Load project helpers ─────────────────────────────────────────────
+# ---------------- Get sources Start ----------------
+# Resolve project root if DOTS isn't set
+DOTS="${DOTS:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --environment|-e)
-      shift
-      ENVIRONMENT_VALUE="${1:-}"
-      if [[ -z "${ENVIRONMENT_VALUE}" ]]; then
-        echo "ERROR: --environment requires a value (dev|prod)" >&2
-        exit 2
-      fi
-      ;;
-    --ansible-config|-c)
-      shift
-      ANSIBLE_CONFIG_PATH="${1:-}"
-      if [[ -z "${ANSIBLE_CONFIG_PATH}" ]]; then
-        echo "ERROR: --ansible-config requires a path" >&2
-        exit 2
-      fi
-      ;;
-    *)
-      echo "Unknown argument: $1" >&2
-      exit 2
-      ;;
-  esac
-  shift
-done
+# Load helper libraries (logging, divider, have_cmd, _sudo, etc.)
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/common.sh"
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/pkg.sh"
+# shellcheck disable=SC1091
+source "$DOTS/scripts/helpers/error_handling.sh"
+export DOTS_LOG="$HOME/.local/share/dotfilez/postdeploy.log"
+# ---------------- Get sources End ------------------
 
-# Export environment for ansible.cfg templating or inventory lookups
-export ENVIRONMENT="${ENVIRONMENT_VALUE}"
-
-# If an ansible config is passed, export it
-if [[ -n "${ANSIBLE_CONFIG_PATH}" ]]; then
-  export ANSIBLE_CONFIG="${ANSIBLE_CONFIG_PATH}"
-fi
-
-# Resolve repo root as script directory up two levels
+# Resolve repository root (assumes this script lives in dotfilez/scripts/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-PLAYBOOK_DIR="${REPO_ROOT}/ansible/playbooks/enable"
-INVENTORY_PATH="${REPO_ROOT}/ansible/inventories/hosts/${ENVIRONMENT}/hosts.yml"
-
-if [[ ! -f "${INVENTORY_PATH}" ]]; then
-  echo "ERROR: Inventory not found for environment '${ENVIRONMENT}': ${INVENTORY_PATH}" >&2
-  exit 3
-fi
+# Default locations; can be overridden via env vars
+: "${PLAYBOOK_DIR:=${REPO_ROOT}/dotfilez/ansible/playbooks/enable}"
+: "${INVENTORY:=${REPO_ROOT}/dotfilez/ansible/inventories/production/hosts.ini}"
+: "${ANSIBLE_LIMIT:=}"
+: "${ANSIBLE_TAGS:=}"
+: "${ANSIBLE_EXTRA_OPTS:=}"
 
 if [[ ! -d "${PLAYBOOK_DIR}" ]]; then
-  echo "ERROR: Playbook directory not found: ${PLAYBOOK_DIR}" >&2
-  exit 3
+  echo "ERROR: PLAYBOOK_DIR not found: ${PLAYBOOK_DIR}" >&2
+  exit 1
 fi
 
-echo "INFO: Using environment: ${ENVIRONMENT}"
-echo "INFO: Inventory: ${INVENTORY_PATH}"
-if [[ -n "${ANSIBLE_CONFIG:-}" ]]; then
-  echo "INFO: ANSIBLE_CONFIG: ${ANSIBLE_CONFIG}"
+if [[ ! -f "${INVENTORY}" ]]; then
+  echo "ERROR: inventory file not found: ${INVENTORY}" >&2
+  exit 1
 fi
 
-# Execute playbooks in lexical order
-shopt -s nullglob
-PLAYBOOKS=( "${PLAYBOOK_DIR}"/*.yml "${PLAYBOOK_DIR}"/*.yaml )
-if [[ ${#PLAYBOOKS[@]} -eq 0 ]]; then
-  echo "WARN: No playbooks found in ${PLAYBOOK_DIR}" >&2
-  exit 0
+# Ensure ansible-playbook is available
+if ! command -v ansible-playbook >/dev/null 2>&1; then
+  echo "ERROR: ansible-playbook not found in PATH" >&2
+  exit 1
 fi
 
-for pb in "${PLAYBOOKS[@]}"; do
-  echo "---- Running ${pb} ----"
-  ansible-playbook -i "${INVENTORY_PATH}" "${pb}"
+echo "Using inventory: ${INVENTORY}"
+echo "Scanning playbooks in: ${PLAYBOOK_DIR}"
+
+# Build base args
+BASE_ARGS=(-i "${INVENTORY}")
+if [[ -n "${ANSIBLE_LIMIT}" ]]; then
+  BASE_ARGS+=(--limit "${ANSIBLE_LIMIT}")
+fi
+if [[ -n "${ANSIBLE_TAGS}" ]]; then
+  BASE_ARGS+=(--tags "${ANSIBLE_TAGS}")
+fi
+
+# Run each playbook in natural sort order
+mapfile -t playbooks < <(find "${PLAYBOOK_DIR}" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) | sort -V)
+
+if (( ${#playbooks[@]} == 0 )); then
+  echo "No playbooks found in ${PLAYBOOK_DIR}" >&2
+  exit 1
+fi
+
+rc=0
+for pb in "${playbooks[@]}"; do
+  echo "================================================================"
+  echo "Running: ${pb}"
+  echo "----------------------------------------------------------------"
+  if ! ansible-playbook "${BASE_ARGS[@]}" ${ANSIBLE_EXTRA_OPTS} "${pb}"; then
+    echo "Playbook failed: ${pb}" >&2
+    rc=1
+    break
+  fi
+  echo
 done
 
-echo "All playbooks executed successfully."
+exit "${rc}"

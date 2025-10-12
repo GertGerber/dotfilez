@@ -45,6 +45,7 @@ detect_admin_group() { [[ "$PKG_FAMILY" == debian ]] && echo sudo || echo wheel;
 
 # ── Privilege & user helpers ──────────────────────────────────
 _sudo() { if [[ $EUID -eq 0 ]]; then "$@"; else sudo "$@"; fi }
+
 ensure_sudo_installed() {
   have_cmd sudo && return 0
   require_debian

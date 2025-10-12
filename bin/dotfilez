@@ -140,6 +140,17 @@ require_debian() {
 ADMIN_GROUP_DEBIAN="sudo"
 ADMIN_GROUP_RHEL="wheel"
 
+# Return 0 if the current shell has root privileges, else 1.
+is_root() {
+  # Use EUID if available (bash/zsh); fall back to `id -u`.
+  if [ -n "${EUID-}" ]; then
+    [ "$EUID" -eq 0 ]
+  else
+    [ "$(id -u 2>/dev/null)" -eq 0 ]
+  fi
+}
+
+
 # Validates a username against common Linux username rules.
 # Returns 0 (true) if valid, 1 (false) if invalid.
 # Rules: 1-32 chars, lowercase letters, digits, underscores, hyphens,
@@ -418,9 +429,9 @@ ensure_alias() {
     rcfile="${HOME}/.bashrc"
   fi
   if grep -Fq "${ALIAS_LINE}" "${rcfile}" 2>/dev/null; then
-    log "Alias already present in ${rcfile}"
+    info "Alias already present in ${rcfile}"
   else
-    log "Adding alias to ${rcfile}: ${ALIAS_LINE}"
+    info "Adding alias to ${rcfile}: ${ALIAS_LINE}"
     printf "\n# dotfilez alias\n%s\n" "${ALIAS_LINE}" >> "${rcfile}"
   fi
 }

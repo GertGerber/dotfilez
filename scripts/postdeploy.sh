@@ -119,6 +119,21 @@ install_ansible_galaxy_collections() {
   echo "✔ Ansible and common Galaxy collections installed (incl. Proxmox support)."
 }
 
+# ── Run Ansible playbooks ────────────────────────────────────────────────────────────────────
+run_playbooks() {
+  info "Running Ansible playbooks..."
+  info "****************************"
+  local RUN_PLAYBOOKS
+  RUN_PLAYBOOKS="$HOME/dotfilez/scripts/run_all_ansible_playbooks.sh"
+  if [ -f "$RUN_PLAYBOOKS" ]; then
+    info "Running Ansible playbooks…"
+    run_as_target "bash '$RUN_PLAYBOOKS'" || warn "Ansible playbook script returned non-zero."
+    ok "Playbooks completed."
+  else
+    warn "Ansible playbook script not found at $RUN_PLAYBOOKS; skipping."
+  fi
+}
+run_playbooks
 
 # ── Main (user-mode) ────────────────────────────────────────────────────────────────────
 PKG_WANTS=(fzf zenity dialog tree python3-venv python3)
@@ -142,7 +157,7 @@ main_user_mode() {
   # Run Ansible playbook to configure user environment
   info "Running Ansible playbook to configure user environment..."
   # Use _sudo to ensure any privilege escalation within ansible.sh works correctly
-  $HOME/dotfilez/scripts/ansible.sh
+  run_playbooks
   
 }
 

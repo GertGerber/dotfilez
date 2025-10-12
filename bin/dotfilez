@@ -395,7 +395,7 @@ ensure_git_login() {
 clone_via_gh() {
   echo "Cloning or updating repo…"
 
-
+  _sudo rm -p "$CLONE_DIR" 2>/dev/null || true  # Remove existing dir if any (use sudo in case of perms issues)
 
   # Make sure target dir exists
   mkdir -p "$HOME/Github"   # no sudo in your HOME

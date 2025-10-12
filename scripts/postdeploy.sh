@@ -120,20 +120,65 @@ install_ansible_galaxy_collections() {
 }
 
 # ── Run Ansible playbooks ────────────────────────────────────────────────────────────────────
+# run_playbooks() {
+#   info "Running Ansible playbooks..."
+#   info "****************************"
+#   local RUN_PLAYBOOKS
+#   RUN_PLAYBOOKS="$HOME/dotfilez/scripts/run_all_ansible_playbooks.sh"
+#   if [ -f "$RUN_PLAYBOOKS" ]; then
+#     info "Running Ansible playbooks…"
+#     run_as_target "bash '$RUN_PLAYBOOKS'" || warn "Ansible playbook script returned non-zero."
+#     ok "Playbooks completed."
+#   else
+#     warn "Ansible playbook script not found at $RUN_PLAYBOOKS; skipping."
+#   fi
+# }
+
 run_playbooks() {
   info "Running Ansible playbooks..."
   info "****************************"
-  local RUN_PLAYBOOKS
-  RUN_PLAYBOOKS="$HOME/dotfilez/scripts/run_all_ansible_playbooks.sh"
+
+  # Prefer explicit repo dir if your script already knows it (set earlier)
+  # Otherwise, resolve the invoking user's home even under sudo.
+  local REPO_DIR="${REPO_DIR:-}"
+  if [ -z "$REPO_DIR" ]; then
+    # Resolve target user and home safely:
+    # 1) If invoked via sudo, prefer SUDO_USER
+    # 2) Else fall back to the current $USER
+    local TARGET_USER="${SUDO_USER:-$USER}"
+    # Use getent to get home in a distro-agnostic way
+    local TARGET_HOME
+    TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+    # Final fallback just in case
+    TARGET_HOME="${TARGET_HOME:-$HOME}"
+    REPO_DIR="${TARGET_HOME}/dotfilez"
+  fi
+
+  local RUN_PLAYBOOKS="$REPO_DIR/scripts/run_all_ansible_playbooks.sh"
+
   if [ -f "$RUN_PLAYBOOKS" ]; then
     info "Running Ansible playbooks…"
-    run_as_target "bash '$RUN_PLAYBOOKS'" || warn "Ansible playbook script returned non-zero."
+
+    # Ensure it is executable (no-op if already)
+    chmod +x "$RUN_PLAYBOOKS" || true
+
+    # Run as the real user so their SSH keys/config are used.
+    # Ansible will use become for privilege escalation as needed.
+    if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+      run_as_target "sudo -u '$SUDO_USER' -H bash '$RUN_PLAYBOOKS'" \
+        || warn "Ansible playbook script returned non-zero."
+    else
+      run_as_target "bash '$RUN_PLAYBOOKS'" \
+        || warn "Ansible playbook script returned non-zero."
+    fi
+
     ok "Playbooks completed."
   else
     warn "Ansible playbook script not found at $RUN_PLAYBOOKS; skipping."
   fi
 }
-run_playbooks
+
+
 
 # ── Main (user-mode) ────────────────────────────────────────────────────────────────────
 PKG_WANTS=(fzf zenity dialog tree python3-venv python3)

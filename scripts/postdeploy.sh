@@ -141,7 +141,7 @@ run_playbooks() {
   RUN_PLAYBOOKS="$DOTS/scripts/run_all_ansible_playbooks.sh"
   if [ -f "$RUN_PLAYBOOKS" ]; then
     info "Running Ansible playbooks…"
-    run_as_target "bash '$RUN_PLAYBOOKS'" || warn "Ansible playbook script returned non-zero."
+    _sudo "bash '$RUN_PLAYBOOKS'" || warn "Ansible playbook script returned non-zero."
     ok "Playbooks completed."
   else
     warn "Ansible playbook script not found at $RUN_PLAYBOOKS; skipping."

@@ -30,7 +30,8 @@ make_executable() {
   if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
   if [[ -x "$DOTS/scripts/make-executable.sh" ]]; then
     divider
-    warn "About to run: $DOTS/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
+    # warn "About to run: $DOTS/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"; read -r _ || true
+    warn "About to run: $DOTS/scripts/make-executable.sh (press Enter to continue or Ctrl+C to skip)"
     $DOTS/scripts/make-executable.sh "$DOTS"
     $DOTS/scripts/make-executable.sh "$DOTS/bin/dotfilez"
 
@@ -119,7 +120,6 @@ install_ansible_galaxy_collections() {
 }
 
 
-
 # ── Main (user-mode) ────────────────────────────────────────────────────────────────────
 PKG_WANTS=(fzf zenity dialog tree python3-venv python3)
 
@@ -136,6 +136,12 @@ main_user_mode() {
   divider
   # install Ansible + common Galaxy collections (incl. Proxmox)
   install_ansible_galaxy_collections
+
+  divider
+  # Run Ansible playbook to configure user environment
+  info "Running Ansible playbook to configure user environment..."
+  # Use _sudo to ensure any privilege escalation within ansible.sh works correctly
+  _sudo $HOME/dotfilez/scripts/ansible.sh
   
 }
 

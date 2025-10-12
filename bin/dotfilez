@@ -441,7 +441,8 @@ post_clone_actions() {
   if ! is_tty; then warn "No TTY; skipping interactive post-clone steps."; return 0; fi
   if [[ -x "$CLONE_DIR/scripts/make-executable.sh" ]]; then
     divider
-    warn "About to run: Post Clone Tasks)"; read -r _ || true; # Pause for user to read
+    # warn "About to run: Post Clone Tasks)"; read -r _ || true; # Pause for user to read
+    warn "About to run: Post Clone Tasks)"
     _sudo $HOME/dotfilez/scripts/postdeploy.sh
 
     

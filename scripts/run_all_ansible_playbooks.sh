@@ -16,13 +16,10 @@ source "$DOTS/scripts/helpers/error_handling.sh"
 export DOTS_LOG="$HOME/.local/share/dotfilez/postdeploy.log"
 # ---------------- Get sources End ------------------
 
-# Resolve repository root (assumes this script lives in dotfilez/scripts/)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-
+# ── Run All Ansible Playbooks ─────────────────────────────────────────────
 # Default locations; can be overridden via env vars
-: "${PLAYBOOK_DIR:=${REPO_ROOT}/dotfilez/ansible/playbooks/enable}"
-: "${INVENTORY:=${REPO_ROOT}/dotfilez/ansible/inventories/production/hosts.ini}"
+: "${PLAYBOOK_DIR:=${DOTS}/dotfilez/ansible/playbooks/enable}"
+: "${INVENTORY:=${DOTS}/dotfilez/ansible/inventories/production/hosts.ini}"
 : "${ANSIBLE_LIMIT:=}"
 : "${ANSIBLE_TAGS:=}"
 : "${ANSIBLE_EXTRA_OPTS:=}"

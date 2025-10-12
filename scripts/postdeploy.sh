@@ -14,7 +14,14 @@ source "$DOTS/scripts/helpers/common.sh"
 source "$DOTS/scripts/helpers/pkg.sh"
 # shellcheck disable=SC1091
 source "$DOTS/scripts/helpers/error_handling.sh"
-export DOTS_LOG="$HOME/.local/share/dotfilez/postdeploy.log"
+
+# Determine target HOME (handles sudo)
+TARGET_USER="${SUDO_USER:-$USER}"
+TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6 2>/dev/null || echo "$HOME")"
+
+LOG_DIR="${TARGET_HOME}/.local/share/dotfilez"
+mkdir -p "$LOG_DIR"
+export DOTS_LOG=""${TARGET_HOME}/.local/share/dotfilez/postdeploy.log"
 # ---------------- Get sources End ------------------
 
 echo "[postdeploy] placeholder – post-deploy tasks"
@@ -129,7 +136,7 @@ run_playbooks() {
   if [ -f "$RUN_PLAYBOOKS" ]; then
     info "Running Ansible playbooks…"
     _sudo "bash '$RUN_PLAYBOOKS'" || warn "Ansible playbook script returned non-zero."
-    ok "Playbooks completed."
+    info "Playbooks completed."
   else
     warn "Ansible playbook script not found at $RUN_PLAYBOOKS; skipping."
   fi

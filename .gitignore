@@ -28,3 +28,7 @@ inventories/**/host_vars/*vault*.yml
 *.swo
 __pycache__/
 .cache/
+
+# IDEs and editors
+.vscode/
+bin/Github.code-workspace
